@@ -1,98 +1,57 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
+import Lovense from "./icy/lovense";
 import "./App.css";
 
-const useBluetoothDevice = (
-  filters: BluetoothRequestDeviceFilter[] = [{ services: ["battery_service"] }]
-): [boolean, void | Error, () => void, void | BluetoothDevice] => {
+const useLovense = (): [boolean, void | Error, () => void, void | Lovense] => {
   const [requested, setRequested] = useState<boolean>(false);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [lovense, setLovense] = useState<void | Lovense>();
   const [error, setError] = useState<Error>();
-  const [device, setDevice] = useState<void | BluetoothDevice>();
 
-  const requestLoad = async () => {
+  const request = async () => {
     if (requested) {
       return;
     }
     setRequested(true);
     try {
-      const device = await navigator.bluetooth.requestDevice({ filters });
-      setLoading(false);
-      setDevice(device);
+      const lovense = new Lovense();
+      lovense.connected.catch(setError);
+      setLovense(lovense);
     } catch (error) {
       setError(error);
     }
   };
 
-  return [loading, error, requestLoad, device];
-};
-
-const useBatteryLevel = (device: void | BluetoothDevice) => {
-  const [batteryLevel, setBatteryLevel] = useState<void | number>();
-  useEffect(() => {
-    if (!device) {
-      return;
-    }
-
-    const abort = new AbortController();
-
-    (async () => {
-      const gatt = device.gatt;
-      if (!gatt) {
-        throw new Error("device should support GATT");
-      }
-      const server = await gatt.connect();
-      const batteryService = await server.getPrimaryService("battery_service");
-
-      const onBatteryLevelChange = (event: {
-        target: BluetoothRemoteGATTCharacteristic;
-      }) => {
-        setBatteryLevel(event.target.value!.getUint8(0));
-      };
-
-      const batteryLevelCharacteristic = await batteryService.getCharacteristic(
-        "battery_level"
-      );
-      const batteryLevelBinary = await batteryLevelCharacteristic.readValue();
-      batteryLevelCharacteristic.addEventListener(
-        "characteristicvaluechanged",
-        onBatteryLevelChange as any
-      );
-      abort.signal.addEventListener("abort", () => {
-        batteryLevelCharacteristic.removeEventListener(
-          "characteristicvaluechanged",
-          onBatteryLevelChange as any
-        );
-      });
-
-      const batteryLevel = batteryLevelBinary.getUint8(0);
-      setBatteryLevel(batteryLevel);
-
-      await new Promise(resolve => setTimeout(resolve, 4000));
-    })();
-
-    return () => abort.abort();
-  }, [device]);
-
-  return batteryLevel;
+  return [!lovense, error, request, lovense];
 };
 
 const App: React.FC = () => {
-  const [loading, error, requestLoad, device] = useBluetoothDevice();
-  const batteryLevel = useBatteryLevel(device);
+  const [loading, error, request, lovense] = useLovense();
 
   if (error) {
-    return <p>{String(error)}</p>;
+    return (
+      <div className="App">
+        <p>{String(error)}</p>
+      </div>
+    );
   }
   if (loading) {
-    return <button onClick={requestLoad}>Connect</button>;
+    return (
+      <div className="App">
+        <button onClick={request}>Connect</button>
+      </div>
+    );
   }
+
+  if (!lovense) {
+    throw new Error();
+  }
+
+  console.log(lovense);
+  (window as any)["lovense"] = lovense;
 
   return (
     <div className="App">
-      <header className="App-header">
-        Got permission to access {String(device)}. Battery level is:{" "}
-        {batteryLevel}.
-      </header>
+      <div>Got {String(lovense)}.</div>
     </div>
   );
 };
