@@ -13,8 +13,7 @@ const useLovense = (): [boolean, void | Error, () => void, void | Lovense] => {
     }
     setRequested(true);
     try {
-      const lovense = new Lovense();
-      lovense.connected.catch(setError);
+      const lovense = await Lovense.request();
       setLovense(lovense);
     } catch (error) {
       setError(error);

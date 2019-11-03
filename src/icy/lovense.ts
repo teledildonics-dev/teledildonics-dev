@@ -1,107 +1,180 @@
-// https://stpihkal.docs.buttplug.io/hardware/lovense.html
+/// Allows Lovense devices to be controlled with WebBluetooth.
+///
+/// See protocol documentation at
+/// https://stpihkal.docs.buttplug.io/hardware/lovense.html.
 
-const utf8Encoder = new TextEncoder();
-const utf8Decoder = new TextDecoder();
-
-interface Connection {
-  send(value: string): Promise<void>;
-  response: Promise<string>;
-}
+import { assert, first, unwrap, only, throwIf, unsafe } from "./safety";
+import utf8 from "./utf8";
+import { withEventStream } from "./events";
 
 export default class Lovense {
-  readonly requested: Promise<BluetoothDevice>;
-  readonly connected: Promise<Connection>;
+  /// Prompts the user for Bluetooth access to a local Lovense device,
+  /// then connects to it.
+  ///
+  /// This must be called from a synchronous response to a user input event.
+  public static async request(): Promise<Lovense> {
+    const device = await navigator.bluetooth.requestDevice(deviceProfile);
 
-  /// This must be called in response to a user input event.
-  constructor() {
-    this.requested = navigator.bluetooth.requestDevice({
-      filters: [{ namePrefix: "LVS-" }],
-      optionalServices: [
-        "0000fff0-0000-1000-8000-00805f9b34fb",
-        "6e400001-b5a3-f393-e0a9-e50e24dcca9e",
-        ...[..."34"]
-          .map(y =>
-            [..."0123456789abcdef"].map(x => `5${x}300001-002${y}-4bd4-bbd5-a6920e4c5653`)
-          )
-          .flat()
-      ]
-    });
-    this.connected = this.requested.then(device => this.connect(device));
-  }
-
-  protected async connect(device: BluetoothDevice) {
-    const server = await device.gatt!.connect();
-    const service = (await server.getPrimaryServices())[0]!;
-    const characteristics = await service.getCharacteristics();
-    const transmitter = characteristics.find(c => c.properties.write)!;
-    const receiver = characteristics.find(c => !c.properties.write)!;
-
-    const send = async (value: string) => {
-      await transmitter.writeValue(utf8Encoder.encode(value));
-    };
-
-    const connection: Connection = {
-      send,
-      response: null as any
-    };
-
-    let setNextResponse: (value: string) => void;
-
-    connection.response = new Promise<string>(resolve => {
-      setNextResponse = resolve;
-    });
-
-    receiver.addEventListener("characteristicvaluechanged", event => {
-      const binary = (event.target as any).value;
-      setNextResponse(utf8Decoder.decode(binary));
-      connection.response = new Promise(resolve => {
-        setNextResponse = resolve;
-      });
-    });
-    await receiver.startNotifications();
-
-    return connection;
-  }
-
-  protected async call(command: string): Promise<string> {
-    const { send, response } = await this.connected;
-    await send(command);
-    return await response;
-  }
-
-  public async deviceType(): Promise<string> {
-    const response = await this.call("DeviceType;");
-    const modelId = response.split(":")[0];
-    return ({
-      A: "Nora",
-      C: "Nora",
-      B: "Max",
-      S: "Lush",
-      Z: "Hush",
-      W: "Domi",
-      P: "Edge",
-      O: "Osci"
-    } as any)[modelId];
-  }
-
-  public async battery(): Promise<number> {
-    const response = await this.call("Battery;");
-    const level = Number(response.split(";")[0]);
-
-    if (!(Number.isSafeInteger(level) && 0 <= level && level <= 100)) {
-      throw new Error("Battery should be integer from 0-20.");
+    let lovense;
+    {
+      const server = await unwrap(device.gatt).connect();
+      const service = only(await server.getPrimaryServices());
+      const characteristics = await service.getCharacteristics();
+      const transmitter = only(characteristics.filter(c => c.properties.write));
+      const receiver = only(characteristics.filter(c => !c.properties.write));
+      receiver.startNotifications();
+      lovense = new Lovense(device, server, transmitter, receiver);
     }
 
-    return level / 100.0;
+    try {
+    } catch (error) {
+      lovense.destroy(error);
+      throw error;
+    }
+
+    return lovense;
   }
 
-  public async vibrate(power: number): Promise<string> {
+  private destroyed: Error | null = null;
+  private responseLogger: (event: unsafe) => void;
+
+  private constructor(
+    private device: BluetoothDevice,
+    private server: BluetoothRemoteGATTServer,
+    private transmitter: BluetoothRemoteGATTCharacteristic,
+    private receiver: BluetoothRemoteGATTCharacteristic
+  ) {
+    this.responseLogger = (event: unsafe) => {
+      assert(event && event.target && event.target.value instanceof DataView);
+      const binary: DataView = event.target.value;
+      const s = utf8.decode(binary);
+      console.debug(this.device.name, "received", s);
+    };
+    this.receiver.addEventListener("characteristicvaluechanged", this.responseLogger);
+  }
+
+  private async call<Result>(
+    request: string,
+    handler: (responses: ReadableStreamReader<string>) => Promise<Result>
+  ): Promise<Result> {
+    return withEventStream(
+      this.receiver,
+      "characteristicvaluechanged",
+      (event: unsafe) => {
+        assert(event && event.target && event.target.value instanceof DataView);
+        const binary: DataView = event.target.value;
+        return utf8.decode(binary);
+      },
+      async responses => {
+        await this.transmitter.writeValue(utf8.encode(request));
+        return await handler(responses);
+      }
+    );
+  }
+
+  public destroy(error: Error = new Error("Lovense::destroy()ed")) {
+    throwIf(this.destroyed);
+    this.destroyed = error;
+
+    this.receiver.removeEventListener("characteristicvaluechanged", this.responseLogger);
+    this.server.disconnect();
+
+    this.responseLogger = null as unsafe;
+    this.device = null as unsafe;
+    this.server = null as unsafe;
+    this.transmitter = null as unsafe;
+    this.receiver = null as unsafe;
+  }
+
+  /// Return the model name of this device.
+  public async deviceType(): Promise<string> {
+    return this.call("DeviceType;", async responses => {
+      const { value } = await responses.read();
+      const modelId = unwrap(first(value.split(":")));
+      return modelNames.get(modelId)!;
+    });
+  }
+
+  /// Returns the battery level as a value between 0.0 and 1.0.
+  public async battery(): Promise<number> {
+    return this.call("Battery;", async responses => {
+      const { value } = await responses.read();
+      const level = Number(only(value.split(";")));
+
+      if (!(Number.isSafeInteger(level) && 0 <= level && level <= 100)) {
+        throw new Error("Battery should be integer from 0-100.");
+      }
+
+      return level / 100.0;
+    });
+  }
+
+  /// Set the vibration level to a value between 0.0 and 1.0.
+  public async vibrate(power: number): Promise<void> {
+    if (!(0 <= power && power <= 1.0)) {
+      throw new Error("Power must be from 0.0-1.0.");
+    }
+
     const level = Math.round(power * 20.0);
 
     if (!(Number.isSafeInteger(level) && 0 <= level && level <= 20)) {
-      throw new Error("Power must be integer from 0-20.");
+      throw new Error("Level must be integer from 0-20.");
     }
 
-    return await this.call(`Vibrate:${level}`);
+    return this.call(`Vibrate:${level}`, async responses => {
+      const { value } = await responses.read();
+      assert(value === "Ok;", "Unexpected response to vibration command.");
+    });
+  }
+
+  /// Return a patterns currently set on the device.
+  ///
+  /// The result is an array of values between 0.0 and 1.0, each indicating the
+  /// target power level for half of a second.
+  public async getPattern(index: number): Promise<Array<number>> {
+    return this.call(`GetPatten:${index};`, async responses => {
+      const powers = [];
+      while (true) {
+        const { value } = await responses.read();
+        if (value === "ER;") {
+          throw new Error("Got Error response from device.");
+        }
+        const body = unwrap(first(value.split(";")));
+        const [tag, part, levels] = body.split(/:/g);
+        assert(tag === `P${index}`, "Got pattern response for wrong index!");
+        const [partIndex, partCount] = part.split("/");
+        powers.push(...[...levels].map(digit => Number(digit) / 9.0));
+        if (partIndex === partCount) {
+          break;
+        }
+      }
+      return powers;
+    });
   }
 }
+
+/// WebBluetooth device profile covering all Lovense devices and services.
+const deviceProfile = {
+  filters: [{ namePrefix: "LVS-" }],
+  optionalServices: [
+    "0000fff0-0000-1000-8000-00805f9b34fb",
+    "6e400001-b5a3-f393-e0a9-e50e24dcca9e",
+    ...[..."34"]
+      .map(y =>
+        [..."0123456789abcdef"].map(x => `5${x}300001-002${y}-4bd4-bbd5-a6920e4c5653`)
+      )
+      .flat()
+  ]
+};
+
+/// The name corresponding to each Lovense model identifier used in the DeviceInfo response.
+const modelNames = new Map([
+  ["A", "Nora"],
+  ["C", "Nora"],
+  ["B", "Max"],
+  ["S", "Lush"],
+  ["Z", "Hush"],
+  ["W", "Domi"],
+  ["P", "Edge"],
+  ["O", "Osci"]
+]);
