@@ -3,7 +3,7 @@
 /// See protocol documentation at
 /// https://stpihkal.docs.buttplug.io/hardware/lovense.html.
 
-import { assert, first, unwrap, only, throwIf, unsafe } from "./safety";
+import { assert, first, unwrap, only, throwIf, unsafe, Lock } from "./safety";
 import utf8 from "./utf8";
 import { withEventStream } from "./events";
 
@@ -37,6 +37,7 @@ export default class Lovense {
 
   private destroyed: Error | null = null;
   private responseLogger: (event: unsafe) => void;
+  private lock: Lock = new Lock();
 
   private constructor(
     private device: BluetoothDevice,
@@ -57,19 +58,21 @@ export default class Lovense {
     request: string,
     handler: (responses: ReadableStreamReader<string>) => Promise<Result>
   ): Promise<Result> {
-    return withEventStream(
-      this.receiver,
-      "characteristicvaluechanged",
-      (event: unsafe) => {
-        assert(event && event.target && event.target.value instanceof DataView);
-        const binary: DataView = event.target.value;
-        return utf8.decode(binary);
-      },
-      async responses => {
-        await this.transmitter.writeValue(utf8.encode(request));
-        return await handler(responses);
-      }
-    );
+    return this.lock.use(async () => {
+      return await withEventStream(
+        this.receiver,
+        "characteristicvaluechanged",
+        (event: unsafe) => {
+          assert(event && event.target && event.target.value instanceof DataView);
+          const binary: DataView = event.target.value;
+          return utf8.decode(binary);
+        },
+        async responses => {
+          await this.transmitter.writeValue(utf8.encode(request));
+          return await handler(responses);
+        }
+      );
+    });
   }
 
   public destroy(error: Error = new Error("Lovense::destroy()ed")) {
@@ -123,7 +126,7 @@ export default class Lovense {
 
     return this.call(`Vibrate:${level}`, async responses => {
       const { value } = await responses.read();
-      assert(value === "Ok;", "Unexpected response to vibration command.");
+      assert(value === "OK;", "Unexpected response to vibration command.");
     });
   }
 

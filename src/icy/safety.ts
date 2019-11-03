@@ -25,7 +25,7 @@ export const first = <T>(values: Array<T>): T | undefined => {
 
 /// Returns the only item in an array, or throws if are zero or more than one items.
 export const only = <T>(values: Array<T>): T => {
-  assert(values.length === 1, "expected array to only have one value")
+  assert(values.length === 1, "expected array to only have one value");
   return values[0];
 };
 
@@ -34,7 +34,18 @@ export const throwIf = (error: Error | null) => {
   if (error) {
     throw error;
   }
-}
+};
 
 /// Make it clearer.
 export type unsafe = any;
+
+/// A very basic async lock.
+export class Lock {
+  private tail: Promise<unknown> = Promise.resolve();
+
+  async use<T>(callback: () => Promise<T>): Promise<T> {
+    const tail = this.tail.then(() => callback());
+    this.tail = tail;
+    return tail;
+  }
+}
