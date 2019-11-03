@@ -1,11 +1,14 @@
 import React, { useState } from "react";
 import Lovense from "./icy/lovense";
 import "./App.css";
+import { unsafe } from "./icy/safety";
 
-const useLovense = (): [boolean, void | Error, () => void, void | Lovense] => {
+const useLovense = () => {
   const [requested, setRequested] = useState<boolean>(false);
-  const [lovense, setLovense] = useState<void | Lovense>();
+  const [lovense, setLovense] = useState<Lovense>();
   const [error, setError] = useState<Error>();
+  const [name, setName] = useState<string>();
+  const [battery, setBattery] = useState<number>();
 
   const request = async () => {
     if (requested) {
@@ -15,16 +18,20 @@ const useLovense = (): [boolean, void | Error, () => void, void | Lovense] => {
     try {
       const lovense = await Lovense.request();
       setLovense(lovense);
+      const type = await lovense.deviceType();
+      setName(type);
+      const battery = await lovense.battery();
+      setBattery(battery);
     } catch (error) {
       setError(error);
     }
   };
 
-  return [!lovense, error, request, lovense];
+  return { loading: !lovense, error, request, lovense, name, battery };
 };
 
 const App: React.FC = () => {
-  const [loading, error, request, lovense] = useLovense();
+  const { loading, error, request, lovense, name, battery } = useLovense();
 
   if (error) {
     return (
@@ -36,7 +43,7 @@ const App: React.FC = () => {
   if (loading) {
     return (
       <div className="App">
-        <button onClick={request}>Connect</button>
+        <button onClick={request as unsafe}>Connect</button>
       </div>
     );
   }
@@ -50,7 +57,23 @@ const App: React.FC = () => {
 
   return (
     <div className="App">
-      <div>Got {String(lovense)}.</div>
+      <div>
+        Connected to a {name} with {battery && Math.floor(battery * 100)}% battery.
+      </div>
+      <div>
+        <input
+          defaultValue="0"
+          min="0"
+          max="20"
+          type="range"
+          onChange={event => {
+            const power = Number(event.target.value) / 20.0;
+            lovense.vibrate(power).catch(error => {
+              console.info("ignoring", error);
+            });
+          }}
+        />
+      </div>
     </div>
   );
 };

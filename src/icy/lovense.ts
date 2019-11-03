@@ -99,7 +99,7 @@ export default class Lovense {
   public async battery(): Promise<number> {
     return this.call("Battery;", async responses => {
       const { value } = await responses.read();
-      const level = Number(only(value.split(";")));
+      const level = Number(unwrap(first(value.split(";"))));
 
       if (!(Number.isSafeInteger(level) && 0 <= level && level <= 100)) {
         throw new Error("Battery should be integer from 0-100.");
