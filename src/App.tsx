@@ -9,6 +9,7 @@ const useLovense = () => {
   const [error, setError] = useState<Error>();
   const [name, setName] = useState<string>();
   const [battery, setBattery] = useState<number>();
+  const [batch, setBatch] = useState<number>();
 
   const request = async () => {
     if (requested) {
@@ -22,16 +23,18 @@ const useLovense = () => {
       console.debug("window.lovense =", lovense);
       (window as any)["lovense"] = lovense;
 
-      const type = await lovense.deviceType();
+      const type = await lovense.model();
       setName(type);
       const battery = await lovense.battery();
       setBattery(battery);
+      const batch = await lovense.batch();
+      setBatch(batch);
     } catch (error) {
       setError(error);
     }
   };
 
-  return { loading: !lovense, error, request, lovense, name, battery };
+  return { loading: !lovense, error, request, lovense, name, battery, batch };
 };
 
 // TODO: put this state somewhere
@@ -41,7 +44,7 @@ const Hack = {
 };
 
 const App: React.FC = () => {
-  const { loading, error, request, lovense, name, battery } = useLovense();
+  const { loading, error, request, lovense, name, battery, batch } = useLovense();
 
   const [targetPower, setTargetPower] = useState(0.0);
   Hack.targetPower = targetPower;
@@ -64,12 +67,14 @@ const App: React.FC = () => {
   const [patterns, setPatterns] = useState<Array<Array<number>>>([]);
 
   useEffect(() => {
-    if (!lovense) {
+    if (!(lovense && name)) {
       return;
     }
 
-    lovense.getPatterns().then(setPatterns);
-  }, [lovense]);
+    if (["Lush", "Domi"].includes(name)) {
+      lovense.getPatterns().then(setPatterns);
+    }
+  }, [lovense, name]);
 
   if (error) {
     return (
@@ -93,13 +98,17 @@ const App: React.FC = () => {
   return (
     <div className="App">
       <div>
-        Connected to a Lovense {name || "toy"} with {battery && Math.round(battery * 100)}%
-        battery.
+        Connected to a {` `} {batch && `20${batch.toString().slice(0, 2)} `}
+        Lovense {name || "toy"} {battery && ` with ${Math.round(battery * 100)}% battery`}.
       </div>
       <div
         style={{
           transform: "scale(2)",
-          padding: "20px",
+          position: "relative",
+          marginTop: "20px",
+          marginBottom: "8px",
+          left: "25%",
+          width: "50%",
           fontFamily: "monospace",
           verticalAlign: "middle"
         }}
@@ -122,26 +131,32 @@ const App: React.FC = () => {
           }}
         />
       </div>
-      <div>Patterns</div>
-      <ol>
-        {patterns.map((pattern, index) => (
-          <li key={index.toString()}>
-            <code>
-              {pattern.map((value, index) => (
-                <span
-                  key={index.toString()}
-                  style={{
-                    opacity: 0.125 + (1 - 0.125) * value,
-                    background: "rgba(255, 255, 255, 0.5)"
-                  }}
-                >
-                  {Math.round(value * 9)}
-                </span>
-              ))}
-            </code>
-          </li>
-        ))}
-      </ol>
+      {(patterns && patterns.length > 0 && (
+        <>
+          <div>Patterns</div>
+
+          <ol>
+            {patterns.map((pattern, index) => (
+              <li key={index.toString()}>
+                <code>
+                  {pattern.map((value, index) => (
+                    <span
+                      key={index.toString()}
+                      style={{
+                        opacity: 0.125 + (1 - 0.125) * value,
+                        background: "rgba(255, 255, 255, 0.5)"
+                      }}
+                    >
+                      {Math.round(value * 9)}
+                    </span>
+                  ))}
+                </code>
+              </li>
+            ))}
+          </ol>
+        </>
+      )) ||
+        ""}
     </div>
   );
 };

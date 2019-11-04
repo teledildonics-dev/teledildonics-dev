@@ -102,7 +102,7 @@ export default class Lovense {
   }
 
   /// Return the model name of this device.
-  public async deviceType(): Promise<string> {
+  public async model(): Promise<string> {
     return this.call("DeviceType;", async responses => {
       const { value } = await responses.read();
       const modelId = unwrap(first(value.split(":")));
@@ -124,6 +124,14 @@ export default class Lovense {
     });
   }
 
+  /// Returns the production batch date of this device.
+  public async batch(): Promise<number> {
+    return this.call("GetBatch;", async responses => {
+      const { value } = await responses.read();
+      return Number(unwrap(first(value.split(";"))));
+    });
+  }
+
   /// Set the vibration level to a value between 0.0 and 1.0.
   public async vibrate(power: number): Promise<void> {
     if (!(0 <= power && power <= 1.0)) {
@@ -136,7 +144,7 @@ export default class Lovense {
       throw new Error("Level must be integer from 0-20.");
     }
 
-    return this.call(`Vibrate:${level}`, async responses => {
+    return this.call(`Vibrate:${level};`, async responses => {
       const { value } = await responses.read();
       assert(value === "OK;", "Unexpected response to vibration command.");
     });
