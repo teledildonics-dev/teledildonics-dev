@@ -49,30 +49,42 @@ export default class Lovense {
       assert(event && event.target && event.target.value instanceof DataView);
       const binary: DataView = event.target.value;
       const s = utf8.decode(binary);
-      console.debug(this.device.name, "received", s);
+      console.debug(
+        `from ${this.device.name}: %c${s}`,
+        "color: #131; font-weight: bold; border: 1px solid #131; padding: 2px 6px; background: #EEE;"
+      );
     };
     this.receiver.addEventListener("characteristicvaluechanged", this.responseLogger);
   }
 
-  private async call<Result>(
+  public async call<Result>(
     request: string,
     handler: (responses: ReadableStreamReader<string>) => Promise<Result>
   ): Promise<Result> {
-    return this.lock.use(async () => {
-      return await withEventStream(
-        this.receiver,
-        "characteristicvaluechanged",
-        (event: unsafe) => {
-          assert(event && event.target && event.target.value instanceof DataView);
-          const binary: DataView = event.target.value;
-          return utf8.decode(binary);
-        },
-        async responses => {
-          await this.transmitter.writeValue(utf8.encode(request));
-          return await handler(responses);
-        }
-      );
-    });
+    if (handler == null) {
+      // just for debugging
+      handler = (async () => {}) as unsafe;
+    }
+    return this.lock.use(
+      async () =>
+        await withEventStream(
+          this.receiver,
+          "characteristicvaluechanged",
+          (event: unsafe) => {
+            assert(event && event.target && event.target.value instanceof DataView);
+            const binary: DataView = event.target.value;
+            return utf8.decode(binary);
+          },
+          async responses => {
+            console.debug(
+              `  to ${this.device.name}: %c${request}`,
+              "color: purple; font-weight: bold; border: 1px solid purple; padding: 2px 6px; background: #EEE;"
+            );
+            await this.transmitter.writeValue(utf8.encode(request));
+            return await handler(responses);
+          }
+        )
+    );
   }
 
   public destroy(error: Error = new Error("Lovense::destroy()ed")) {
@@ -130,11 +142,11 @@ export default class Lovense {
     });
   }
 
-  /// Return a patterns currently set on the device.
+  /// Return a pattern currently set on the device.
   ///
   /// The result is an array of values between 0.0 and 1.0, each indicating the
   /// target power level for half of a second.
-  public async getPattern(index: number): Promise<Array<number>> {
+  private async getPattern(index: number): Promise<Array<number>> {
     return this.call(`GetPatten:${index};`, async responses => {
       const powers = [];
       while (true) {
@@ -142,6 +154,10 @@ export default class Lovense {
         if (value === "ER;") {
           throw new Error("Got Error response from device.");
         }
+        assert(
+          /^P[0-9]:[0-9]{1,2}\/[0-9]{1,2}:[0-9]+;$/.test(value),
+          "Unexpected response to GetPatten:#"
+        );
         const body = unwrap(first(value.split(";")));
         const [tag, part, levels] = body.split(/:/g);
         assert(tag === `P${index}`, "Got pattern response for wrong index!");
@@ -153,6 +169,24 @@ export default class Lovense {
       }
       return powers;
     });
+  }
+
+  /// Return all patterns currently set on the device.
+  ///
+  /// The result is an array of arrays of values between 0.0 and 1.0,
+  /// each indicating the target power level for half of a second.
+  public async getPatterns(): Promise<Array<Array<number>>> {
+    const response = await this.call(`GetPatten;`, async responses => {
+      const { value } = await responses.read();
+      return value;
+    });
+    assert(/^P:0?1?2?3?4?5?6?7?8?9?;$/.test(response), "Unexpected response to GetPatten");
+    const indices = unwrap(first(response.slice(2).split(";")));
+    const patterns = [];
+    for (const index of indices) {
+      patterns.push(await this.getPattern(Number(index)));
+    }
+    return patterns;
   }
 }
 

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Lovense from "./icy/lovense";
 import "./App.css";
 import { unsafe } from "./icy/safety";
@@ -18,6 +18,10 @@ const useLovense = () => {
     try {
       const lovense = await Lovense.request();
       setLovense(lovense);
+
+      console.debug("window.lovense =", lovense);
+      (window as any)["lovense"] = lovense;
+
       const type = await lovense.deviceType();
       setName(type);
       const battery = await lovense.battery();
@@ -30,8 +34,42 @@ const useLovense = () => {
   return { loading: !lovense, error, request, lovense, name, battery };
 };
 
+// TODO: put this state somewhere
+const Hack = {
+  targetPower: 0.0,
+  lastSetPower: 0.0
+};
+
 const App: React.FC = () => {
   const { loading, error, request, lovense, name, battery } = useLovense();
+
+  const [targetPower, setTargetPower] = useState(0.0);
+  Hack.targetPower = targetPower;
+
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      if (!lovense) {
+        return;
+      }
+
+      if (Hack.targetPower !== Hack.lastSetPower) {
+        const target = Hack.targetPower;
+        await lovense.vibrate(Hack.targetPower);
+        Hack.lastSetPower = target;
+      }
+    }, 125);
+    return () => clearInterval(interval);
+  }, [lovense]);
+
+  const [patterns, setPatterns] = useState<Array<Array<number>>>([]);
+
+  useEffect(() => {
+    if (!lovense) {
+      return;
+    }
+
+    lovense.getPatterns().then(setPatterns);
+  }, [lovense]);
 
   if (error) {
     return (
@@ -52,13 +90,11 @@ const App: React.FC = () => {
     throw new Error();
   }
 
-  console.log(lovense);
-  (window as any)["lovense"] = lovense;
-
   return (
     <div className="App">
       <div>
-        Connected to a {name} with {battery && Math.floor(battery * 100)}% battery.
+        Connected to a Lovense {name || "toy"} with {battery && Math.floor(battery * 100)}%
+        battery.
       </div>
       <div>
         <input
@@ -68,12 +104,22 @@ const App: React.FC = () => {
           type="range"
           onChange={event => {
             const power = Number(event.target.value) / 20.0;
-            lovense.vibrate(power).catch(error => {
-              console.info("ignoring", error);
-            });
+            setTargetPower(power);
           }}
         />
       </div>
+      <ol>
+        <h3>Patterns</h3>
+        {patterns.map(pattern => (
+          <li>
+            {pattern.map(value => (
+              <code style={{ opacity: value, background: "rgba(1.0, 1.0, 1.0, 0.25)" }}>
+                {Math.floor(value * 9)}
+              </code>
+            ))}
+          </li>
+        ))}
+      </ol>
     </div>
   );
 };
