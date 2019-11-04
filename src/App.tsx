@@ -93,10 +93,24 @@ const App: React.FC = () => {
   return (
     <div className="App">
       <div>
-        Connected to a Lovense {name || "toy"} with {battery && Math.floor(battery * 100)}%
+        Connected to a Lovense {name || "toy"} with {battery && Math.round(battery * 100)}%
         battery.
       </div>
-      <div>
+      <div
+        style={{
+          transform: "scale(2)",
+          padding: "20px",
+          fontFamily: "monospace",
+          verticalAlign: "middle"
+        }}
+      >
+        <code>
+          {Math.floor(targetPower * 100)
+            .toString()
+            .padStart(3)}
+          %
+        </code>
+
         <input
           defaultValue="0"
           min="0"
@@ -108,15 +122,23 @@ const App: React.FC = () => {
           }}
         />
       </div>
+      <div>Patterns</div>
       <ol>
-        <h3>Patterns</h3>
-        {patterns.map(pattern => (
-          <li>
-            {pattern.map(value => (
-              <code style={{ opacity: value, background: "rgba(1.0, 1.0, 1.0, 0.25)" }}>
-                {Math.floor(value * 9)}
-              </code>
-            ))}
+        {patterns.map((pattern, index) => (
+          <li key={index.toString()}>
+            <code>
+              {pattern.map((value, index) => (
+                <span
+                  key={index.toString()}
+                  style={{
+                    opacity: 0.125 + (1 - 0.125) * value,
+                    background: "rgba(255, 255, 255, 0.5)"
+                  }}
+                >
+                  {Math.round(value * 9)}
+                </span>
+              ))}
+            </code>
           </li>
         ))}
       </ol>
