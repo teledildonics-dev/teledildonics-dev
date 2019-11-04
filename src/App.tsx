@@ -135,10 +135,15 @@ const App: React.FC = () => {
         <>
           <div>Patterns</div>
 
-          <ol>
+          <ol start={0}>
+            <li>
+              <span key="stop" onClick={() => lovense.stopPattern()}>
+                Stop
+              </span>
+            </li>
             {patterns.map((pattern, index) => (
               <li key={index.toString()}>
-                <code>
+                <code onClick={() => lovense.startPattern(index + 1)}>
                   {pattern.map((value, index) => (
                     <span
                       key={index.toString()}

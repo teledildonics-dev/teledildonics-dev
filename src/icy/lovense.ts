@@ -196,6 +196,21 @@ export default class Lovense {
     }
     return patterns;
   }
+
+  /// Starts running a programmed pattern on loop.
+  ///
+  ///
+  public async startPattern(index: number): Promise<void> {
+    return this.call(`Preset:${index};`, async responses => {
+      const { value } = await responses.read();
+      assert(value === "OK;", "Unexpected response to preset command.");
+    });
+  }
+
+  /// Stops running a programmed pattern.
+  public async stopPattern(): Promise<void> {
+    return this.startPattern(0);
+  }
 }
 
 /// WebBluetooth device profile covering all Lovense devices and services.
