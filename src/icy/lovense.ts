@@ -12,25 +12,7 @@ export default class Lovense {
   /// then connects to it.
   ///
   /// This must be called from a synchronous response to a user input event.
-  public static async request(): Promise<Lovense> {
-    const devices = [];
-    while (true) {
-      try {
-        const device = await navigator.bluetooth.requestDevice(deviceProfile);
-        if (device) {
-          devices.push(device);
-        } else {
-          break;
-        }
-      } catch (error) {
-        console.log(error);
-      }
-    }
-
-    (window as unsafe).devices = devices;
-
-    const device = unwrap(first(devices));
-
+  public static async connect(device: BluetoothDevice): Promise<Lovense> {
     let lovense;
     {
       const server = await unwrap(device.gatt).connect();

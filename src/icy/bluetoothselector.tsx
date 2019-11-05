@@ -13,7 +13,8 @@ const baseStyles: CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
-  cursor: "default"
+  cursor: "default",
+  borderRadius: "4px"
 };
 
 export const BluetoothSelector: FC<{
@@ -22,7 +23,7 @@ export const BluetoothSelector: FC<{
   style?: CSSProperties;
 }> = ({ onChange, options = { acceptAllDevices: true }, style = {} }) => {
   const [device, setDevice] = useState<BluetoothDevice>();
-  const [requested, setRequested] = useState<Promise<BluetoothDevice>>();
+  const [requested, setRequested] = useState(false);
 
   if (!requested) {
     return (
@@ -30,7 +31,7 @@ export const BluetoothSelector: FC<{
         style={{ ...baseStyles, cursor: "pointer", ...style }}
         onClick={async () => {
           const request = navigator.bluetooth.requestDevice(options);
-          setRequested(request);
+          setRequested(true);
 
           try {
             const device = await request;
@@ -38,7 +39,7 @@ export const BluetoothSelector: FC<{
             onChange({ target: { value: device } });
           } catch (error) {
             console.error(error);
-            setRequested(undefined);
+            setRequested(false);
           }
         }}
       >
@@ -56,7 +57,7 @@ export const BluetoothSelector: FC<{
     );
   } else {
     return (
-      <span style={{ ...baseStyles, background: "#8CA", ...style }}>ᛒᚼ {device.name}</span>
+      <span style={{ ...baseStyles, background: "#BDC", ...style }}>ᛒᚼ {device.name}</span>
     );
   }
 };
