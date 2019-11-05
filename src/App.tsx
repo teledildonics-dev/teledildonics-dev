@@ -1,6 +1,7 @@
 import React, { useState, FC, useEffect } from "react";
 import Lovense, { deviceProfile } from "./icy/lovense";
 import BluetoothSelector from "./icy/bluetoothselector";
+import { useThrottledChanges } from "./icy/generichooks";
 
 const DeviceControl: FC<{ device: BluetoothDevice }> = ({ device }) => {
   const lovense = useLovense(device);
