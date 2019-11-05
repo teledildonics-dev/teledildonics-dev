@@ -5,19 +5,37 @@ import BluetoothSelector from "./icy/bluetoothselector";
 const DeviceControl: FC<{ device: BluetoothDevice }> = ({ device }) => {
   const lovense = useLovense(device);
 
-  const parts = [];
-  parts.push(<section style={{}}>this is your {device.name}</section>);
+  const [targetPower, setTargetPower] = useState(0.0);
+  const throttledTargetPower = useThrottledChanges(250, targetPower);
 
-  if (lovense) {
-    parts.push(
-      <>
-        <button onClick={() => lovense.vibrate(1.0)}>Start</button>
-        <button onClick={() => lovense.vibrate(0.0)}>Stop</button>
-      </>
-    );
-  }
+  useEffect(() => {
+    if (!lovense) {
+      return;
+    }
 
-  return <>{parts}</>;
+    lovense.vibrate(throttledTargetPower);
+  }, [lovense, throttledTargetPower]);
+
+  return (
+    <>
+      {" "}
+      <span style={{ fontWeight: "bold" }}>{device.name}</span>{" "}
+      {lovense ? (
+        <input
+          defaultValue="0"
+          min="0"
+          max="20"
+          type="range"
+          onChange={event => {
+            const power = Number(event.target.value) / 20.0;
+            setTargetPower(power);
+          }}
+        />
+      ) : (
+        "connecting..."
+      )}
+    </>
+  );
 };
 
 const useLovense = (device: BluetoothDevice): Lovense | null => {
@@ -62,7 +80,8 @@ const App: FC = () => {
   return (
     <main
       style={{
-        margin: "32px"
+        margin: "32px",
+        fontFamily: "sans-serif"
       }}
     >
       <DevicePanes />
