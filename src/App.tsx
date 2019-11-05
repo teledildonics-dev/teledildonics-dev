@@ -1,168 +1,25 @@
-import React, { useState, useEffect } from "react";
-import Lovense from "./icy/lovense";
-import "./App.css";
-import { unsafe } from "./icy/safety";
+import React, { useState, FC } from "react";
+import { deviceProfile } from "./icy/lovense";
+import BluetoothSelector from "./icy/bluetoothselector";
 
-const useLovense = () => {
-  const [requested, setRequested] = useState<boolean>(false);
-  const [lovense, setLovense] = useState<Lovense>();
-  const [error, setError] = useState<Error>();
-  const [name, setName] = useState<string>();
-  const [battery, setBattery] = useState<number>();
-  const [batch, setBatch] = useState<number>();
-
-  const request = async () => {
-    if (requested) {
-      return;
-    }
-    setRequested(true);
-    try {
-      const lovense = await Lovense.request();
-      setLovense(lovense);
-
-      console.debug("window.lovense =", lovense);
-      (window as any)["lovense"] = lovense;
-
-      const type = await lovense.model();
-      setName(type);
-      const battery = await lovense.battery();
-      setBattery(battery);
-      const batch = await lovense.batch();
-      setBatch(batch);
-    } catch (error) {
-      setError(error);
-    }
-  };
-
-  return { loading: !lovense, error, request, lovense, name, battery, batch };
-};
-
-// TODO: put this state somewhere
-const Hack = {
-  targetPower: 0.0,
-  lastSetPower: 0.0
-};
-
-const App: React.FC = () => {
-  const { loading, error, request, lovense, name, battery, batch } = useLovense();
-
-  const [targetPower, setTargetPower] = useState(0.0);
-  Hack.targetPower = targetPower;
-
-  useEffect(() => {
-    const interval = setInterval(async () => {
-      if (!lovense) {
-        return;
-      }
-
-      if (Hack.targetPower !== Hack.lastSetPower) {
-        const target = Hack.targetPower;
-        await lovense.vibrate(Hack.targetPower);
-        Hack.lastSetPower = target;
-      }
-    }, 125);
-    return () => clearInterval(interval);
-  }, [lovense]);
-
-  const [patterns, setPatterns] = useState<Array<Array<number>>>([]);
-
-  useEffect(() => {
-    if (!(lovense && name)) {
-      return;
-    }
-
-    if (["Lush", "Domi"].includes(name)) {
-      lovense.getPatterns().then(setPatterns);
-    }
-  }, [lovense, name]);
-
-  if (error) {
-    return (
-      <div className="App">
-        <p>{String(error)}</p>
-      </div>
-    );
-  }
-  if (loading) {
-    return (
-      <div className="App">
-        <button onClick={request as unsafe}>Connect</button>
-      </div>
-    );
-  }
-
-  if (!lovense) {
-    throw new Error();
-  }
+const App: FC = () => {
+  const [device, setDevice] = useState<BluetoothDevice>();
 
   return (
-    <div className="App">
-      <div>
-        Connected to a {` `} {batch && `20${batch.toString().slice(0, 2)} `}
-        Lovense {name || "toy"} {battery && ` with ${Math.round(battery * 100)}% battery`}.
-      </div>
-      <div
-        style={{
-          transform: "scale(2)",
-          position: "relative",
-          marginTop: "20px",
-          marginBottom: "8px",
-          left: "25%",
-          width: "50%",
-          fontFamily: "monospace",
-          verticalAlign: "middle"
-        }}
-      >
-        <code>
-          {Math.floor(targetPower * 100)
-            .toString()
-            .padStart(3)}
-          %
-        </code>
-
-        <input
-          defaultValue="0"
-          min="0"
-          max="20"
-          type="range"
-          onChange={event => {
-            const power = Number(event.target.value) / 20.0;
-            setTargetPower(power);
-          }}
-        />
-      </div>
-      {(patterns && patterns.length > 0 && (
+    <>
+      <p>
+        <BluetoothSelector
+          options={deviceProfile}
+          onChange={event => setDevice(event.target.value)}
+        ></BluetoothSelector>
+      </p>
+      {device && (
         <>
-          <div>Patterns</div>
-
-          <ol start={0}>
-            <li>
-              <span key="stop" onClick={() => lovense.stopPattern()}>
-                Stop
-              </span>
-            </li>
-            {patterns.map((pattern, index) => (
-              <li key={index.toString()}>
-                <code onClick={() => lovense.startPattern(index + 1)}>
-                  {pattern.map((value, index) => (
-                    <span
-                      key={index.toString()}
-                      style={{
-                        opacity: 0.125 + (1 - 0.125) * value,
-                        background: "rgba(255, 255, 255, 0.5)"
-                      }}
-                    >
-                      {Math.round(value * 9)}
-                    </span>
-                  ))}
-                </code>
-              </li>
-            ))}
-          </ol>
+          <p>Selected: {device.name}</p>
+          <App></App>
         </>
-      )) ||
-        ""}
-    </div>
+      )}
+    </>
   );
 };
 

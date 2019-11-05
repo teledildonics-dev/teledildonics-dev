@@ -13,7 +13,23 @@ export default class Lovense {
   ///
   /// This must be called from a synchronous response to a user input event.
   public static async request(): Promise<Lovense> {
-    const device = await navigator.bluetooth.requestDevice(deviceProfile);
+    const devices = [];
+    while (true) {
+      try {
+        const device = await navigator.bluetooth.requestDevice(deviceProfile);
+        if (device) {
+          devices.push(device);
+        } else {
+          break;
+        }
+      } catch (error) {
+        console.log(error);
+      }
+    }
+
+    (window as unsafe).devices = devices;
+
+    const device = unwrap(first(devices));
 
     let lovense;
     {
@@ -214,7 +230,7 @@ export default class Lovense {
 }
 
 /// WebBluetooth device profile covering all Lovense devices and services.
-const deviceProfile = {
+export const deviceProfile = {
   filters: [{ namePrefix: "LVS-" }],
   optionalServices: [
     "0000fff0-0000-1000-8000-00805f9b34fb",
