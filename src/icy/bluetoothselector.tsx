@@ -5,16 +5,17 @@ const baseStyles: CSSProperties = {
   border: "1px solid black",
   color: "#000",
   background: "#DDE",
-  height: "42px",
-  width: "128px",
+  height: "40px",
+  width: "150px",
   fontSize: "14px",
   fontFamily: "sans-serif",
-  padding: "0px",
+  padding: "4px",
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
   cursor: "default",
-  borderRadius: "4px"
+  borderRadius: "4px",
+  verticalAlign: "top"
 };
 
 export const BluetoothSelector: FC<{

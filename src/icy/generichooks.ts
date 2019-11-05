@@ -12,7 +12,6 @@ export const useSharedState = <T>(
   const [setter, setSetter] = useState<([((value: T) => void)]) | null>(null);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     let value = initialValue;
 
     setGetter([() => value]);
@@ -21,6 +20,7 @@ export const useSharedState = <T>(
         value = newValue;
       }
     ]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (getter && setter) {
@@ -72,6 +72,7 @@ export const useThrottledChanges = <T extends unknown>(interval: number, value: 
 
       checkAsync(value);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value, targetValueAccessors, throttledAccessors]);
 
   return throttledValue;

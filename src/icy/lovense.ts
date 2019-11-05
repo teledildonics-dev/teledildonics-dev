@@ -99,12 +99,18 @@ export default class Lovense {
     this.receiver = null as unsafe;
   }
 
-  /// Return the model name of this device.
-  public async model(): Promise<string> {
+  /// Returns information about the device
+  public async info(): Promise<LovenseDeviceInfo> {
     return this.call("DeviceType;", async responses => {
       const { value } = await responses.read();
-      const modelId = unwrap(first(value.split(":")));
-      return modelNames.get(modelId)!;
+      const [id, firmware, serial] = value.slice(0, -1).split(":");
+      const name = modelNames.get(id)!;
+      return {
+        id,
+        name,
+        firmware: Number(firmware),
+        serial
+      };
     });
   }
 
@@ -181,7 +187,7 @@ export default class Lovense {
   ///
   /// The result is an array of arrays of values between 0.0 and 1.0,
   /// each indicating the target power level for half of a second.
-  public async getPatterns(): Promise<Array<Array<number>>> {
+  public async patterns(): Promise<Array<Array<number>>> {
     const response = await this.call(`GetPatten;`, async responses => {
       const { value } = await responses.read();
       return value;
@@ -211,6 +217,13 @@ export default class Lovense {
   }
 }
 
+export type LovenseDeviceInfo = {
+  id: string;
+  name: string;
+  firmware: number;
+  serial: string;
+};
+
 /// WebBluetooth device profile covering all Lovense devices and services.
 export const deviceProfile = {
   filters: [{ namePrefix: "LVS-" }],
@@ -225,7 +238,7 @@ export const deviceProfile = {
   ]
 };
 
-/// The name corresponding to each Lovense model identifier used in the DeviceInfo response.
+/// The name corresponding to each Lovense model identifier used in the DeviceType response.
 const modelNames = new Map([
   ["A", "Nora"],
   ["C", "Nora"],
