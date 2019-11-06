@@ -45,7 +45,7 @@ export type unsafe = any;
 /// A very basic async lock.
 ///
 /// Unhandled exceptions while holding the lock will poison it.
-export class Lock {
+export class Lock implements AsyncDestroy {
   private tail: Promise<unknown> = Promise.resolve();
   private destroyed: boolean = false;
   private destruction: Promise<Error> | null = null;
@@ -62,7 +62,7 @@ export class Lock {
     }
   }
 
-  /// Destroys the lock. If the lock is currently held, this will wait until
+  /// Poisons the lock. If the lock is currently held, this will wait until
   /// it's released, but will prempt any other uses that are pending.
   async destroy(): Promise<Error> {
     if (this.destruction) {
@@ -81,4 +81,8 @@ export class Lock {
 
     return await this.destruction;
   }
+}
+
+export interface AsyncDestroy {
+  destroy(error?: Error): Promise<Error>;
 }

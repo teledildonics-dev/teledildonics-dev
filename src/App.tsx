@@ -2,6 +2,7 @@ import React, { useState, FC, useEffect } from "react";
 import Lovense, { deviceProfile, LovenseDeviceInfo } from "./icy/lovense";
 import BluetoothSelector from "./icy/bluetoothselector";
 import { useThrottledChanges } from "./icy/generichooks";
+import { sleep, addTimeout } from "./icy/async";
 
 const PatternsControl: FC<{ lovense: Lovense; patterns: Array<Array<number>> }> = ({
   lovense,
@@ -68,10 +69,15 @@ const DeviceControl: FC<{ device: BluetoothDevice }> = ({ device }) => {
       return;
     }
 
-    lovense.info().then(setInfo);
+    const info = lovense.info();
+    info.then(info => {
+      setInfo(info);
+      if (["Lush", "Domi"].includes(info.name)) {
+        lovense.patterns().then(setPatterns);
+      }
+    });
     lovense.batch().then(setBatch);
     lovense.battery().then(setBattery);
-    lovense.patterns().then(setPatterns);
 
     let batteryPollInterval = setInterval(() => {
       lovense.battery().then(setBattery);
@@ -192,12 +198,22 @@ const useLovense = (device: BluetoothDevice): Lovense | null => {
   const [lovense, setLovense] = useState();
 
   useEffect(() => {
-    const lovense = Lovense.connect(device);
+    const lovense = (async () => {
+      while (true) {
+        try {
+          return await addTimeout(Lovense.connect(device), 4000);
+        } catch (error) {
+          console.error("Failed to connect Lovense:", error);
+          await sleep(4000);
+          console.info("Re-attempting to connect Lovense...");
+        }
+      }
+    })();
+
     lovense.then(setLovense);
 
     return () => {
-      console.debug("dismounted");
-      // lovense.then(lovense => lovense.destroy());
+      lovense.then(lovense => lovense.destroy());
     };
   }, [device]);
 

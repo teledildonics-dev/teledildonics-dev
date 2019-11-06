@@ -3,11 +3,12 @@
 /// See protocol documentation at
 /// https://stpihkal.docs.buttplug.io/hardware/lovense.html.
 
-import { assert, first, unwrap, only, throwIf, unsafe, Lock } from "./safety";
+import { assert, first, unwrap, only, unsafe, Lock, AsyncDestroy } from "./safety";
 import utf8 from "./utf8";
 import { withEventStream } from "./events";
+import { addTimeout } from "./async";
 
-export default class Lovense {
+export default class Lovense implements AsyncDestroy {
   /// Prompts the user for Bluetooth access to a local Lovense device,
   /// then connects to it.
   ///
@@ -37,6 +38,8 @@ export default class Lovense {
   private responseLogger: (event: unsafe) => void;
   private lock: Lock = new Lock();
 
+  private callTimeout: number = 4000;
+
   private constructor(
     private device: BluetoothDevice,
     private server: BluetoothRemoteGATTServer,
@@ -57,15 +60,18 @@ export default class Lovense {
 
   public async call<Result>(
     request: string,
-    handler: (responses: ReadableStreamReader<string>) => Promise<Result>
+    handler: (responses: ReadableStreamReader<string>) => Promise<Result>,
+    timeout: number | undefined = this.callTimeout
   ): Promise<Result> {
-    if (handler == null) {
-      // just for debugging
+    if (handler === undefined) {
+      // Only for convenience during debugging, since the static type signature requires a handler.
+      console.warn("call() handler was null");
       handler = (async () => {}) as unsafe;
     }
-    return this.lock.use(
-      async () =>
-        await withEventStream(
+
+    return this.lock.use(async () =>
+      this.retryingIfDisconnected(() => {
+        let result = withEventStream(
           this.receiver,
           "characteristicvaluechanged",
           (event: unsafe) => {
@@ -81,13 +87,30 @@ export default class Lovense {
             await this.transmitter.writeValue(utf8.encode(request));
             return await handler(responses);
           }
-        )
+        );
+
+        if (timeout !== undefined) {
+          result = addTimeout(result, timeout);
+        }
+
+        return result;
+      })
     );
   }
 
-  public destroy(error: Error = new Error("Lovense::destroy()ed")) {
-    throwIf(this.destroyed);
+  public async destroy(error: Error = new Error("Lovense::destroy()ed")): Promise<Error> {
+    if (this.destroyed) {
+      return this.destroyed;
+    }
+
     this.destroyed = error;
+
+    // Let any commands that are already called complete, but destroy the rest.
+    try {
+      await this.lock.use(async () => {
+        throw new Error("Lovense instance destroyed");
+      });
+    } catch (_) {}
 
     this.receiver.removeEventListener("characteristicvaluechanged", this.responseLogger);
     this.server.disconnect();
@@ -97,6 +120,8 @@ export default class Lovense {
     this.server = null as unsafe;
     this.transmitter = null as unsafe;
     this.receiver = null as unsafe;
+
+    return error;
   }
 
   /// Returns information about the device
@@ -104,7 +129,7 @@ export default class Lovense {
     return this.call("DeviceType;", async responses => {
       const { value } = await responses.read();
       const [id, firmware, serial] = value.slice(0, -1).split(":");
-      const name = modelNames.get(id)!;
+      const name = modelNamesById.get(id)!;
       return {
         id,
         name,
@@ -159,28 +184,32 @@ export default class Lovense {
   /// The result is an array of values between 0.0 and 1.0, each indicating the
   /// target power level for half of a second.
   private async getPattern(index: number): Promise<Array<number>> {
-    return this.call(`GetPatten:${index};`, async responses => {
-      const powers = [];
-      while (true) {
-        const { value } = await responses.read();
-        if (value === "ER;") {
-          throw new Error("Got Error response from device.");
+    return this.call(
+      `GetPatten:${index};`,
+      async responses => {
+        const powers = [];
+        while (true) {
+          const { value } = await responses.read();
+          if (value === "ER;") {
+            throw new Error("Got Error response from device.");
+          }
+          assert(
+            /^P[0-9]:[0-9]{1,2}\/[0-9]{1,2}:[0-9]+;$/.test(value),
+            "Unexpected response to GetPatten:#"
+          );
+          const body = unwrap(first(value.split(";")));
+          const [tag, part, levels] = body.split(/:/g);
+          assert(tag === `P${index}`, "Got pattern response for wrong index!");
+          const [partIndex, partCount] = part.split("/");
+          powers.push(...[...levels].map(digit => Number(digit) / 9.0));
+          if (partIndex === partCount) {
+            break;
+          }
         }
-        assert(
-          /^P[0-9]:[0-9]{1,2}\/[0-9]{1,2}:[0-9]+;$/.test(value),
-          "Unexpected response to GetPatten:#"
-        );
-        const body = unwrap(first(value.split(";")));
-        const [tag, part, levels] = body.split(/:/g);
-        assert(tag === `P${index}`, "Got pattern response for wrong index!");
-        const [partIndex, partCount] = part.split("/");
-        powers.push(...[...levels].map(digit => Number(digit) / 9.0));
-        if (partIndex === partCount) {
-          break;
-        }
-      }
-      return powers;
-    });
+        return powers;
+      },
+      this.callTimeout * 10
+    );
   }
 
   /// Return all patterns currently set on the device.
@@ -215,11 +244,36 @@ export default class Lovense {
   public async stopPattern(): Promise<void> {
     return this.startPattern(0);
   }
+
+  /// If the specified function throws an error, but the server has been disconnected, retry.
+  public async retryingIfDisconnected<T>(f: () => T): Promise<T> {
+    if (!this.server.connected) {
+      await this.server.connect();
+    }
+    while (true) {
+      try {
+        return f();
+      } catch (error) {
+        if (!this.server.connected) {
+          console.warn(
+            this,
+            "disconnected then",
+            error,
+            "was thrown. Attempting to reconnect."
+          );
+          await this.server.connect();
+          continue;
+        } else {
+          throw error;
+        }
+      }
+    }
+  }
 }
 
 export type LovenseDeviceInfo = {
   id: string;
-  name: string;
+  name: ModelName;
   firmware: number;
   serial: string;
 };
@@ -239,7 +293,7 @@ export const deviceProfile = {
 };
 
 /// The name corresponding to each Lovense model identifier used in the DeviceType response.
-const modelNames = new Map([
+const modelNamesById = new Map<string, ModelName>([
   ["A", "Nora"],
   ["C", "Nora"],
   ["B", "Max"],
@@ -249,3 +303,5 @@ const modelNames = new Map([
   ["P", "Edge"],
   ["O", "Osci"]
 ]);
+
+export type ModelName = "Nora" | "Max" | "Lush" | "Hush" | "Domi" | "Edge" | "Osci";
