@@ -1,7 +1,8 @@
 {
-  "name": "icybered",
+  "name": "teledildonics-dev",
   "version": "0.1.0",
   "private": true,
+  "license": "UNLICENSED",
   "dependencies": {
     "@types/jest": "24.0.21",
     "@types/node": "12.12.5",
@@ -18,11 +19,13 @@
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
-    "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "test": "react-scripts test"
   },
   "eslintConfig": {
     "extends": "react-app"
+  },
+  "prettier": {
+    "printWidth": 92
   },
   "browserslist": {
     "production": [
@@ -35,8 +38,5 @@
       "last 1 firefox version",
       "last 1 safari version"
     ]
-  },
-  "prettier": {
-    "printWidth": 92
   }
 }
