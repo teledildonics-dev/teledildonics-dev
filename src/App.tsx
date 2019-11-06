@@ -246,7 +246,7 @@ const DeviceControl: FC<{ device: BluetoothDevice }> = ({ device }) => {
             {patterns && info && (
               <PatternsControl
                 lovense={lovense}
-                patterns={info.name == "Domi" ? patterns : patterns.slice(0, 3)}
+                patterns={info.name === "Domi" ? patterns : patterns.slice(0, 3)}
               />
             )}
           </>
@@ -327,7 +327,7 @@ const App: FC = () => {
           lineHeight: "18px"
         }}
       >
-        teledildonics.dev: my control panel of pleasure. <br />
+        teledildonics.dev: my remote control playground. <br />
         Buggy and unstable.{" "}
         <a href="https://github.com/teledildonics-dev/teledildonics-dev">
           View source here
