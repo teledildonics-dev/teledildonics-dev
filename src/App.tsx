@@ -9,53 +9,47 @@ const PatternsControl: FC<{ lovense: Lovense; patterns: Array<Array<number>> }> 
   patterns
 }) => {
   return (
-    <ol start={0}>
-      <li>
-        <span key="stop" onClick={() => lovense.stopPattern()}>
-          Stop
-        </span>
-      </li>
+    <div style={{}}>
       {patterns.map((pattern, index) => (
-        <li
+        <div
           key={index.toString()}
           style={{
             cursor: "pointer",
-            margin: "4px"
+            margin: "8px",
+            background: "#FFF",
+            border: "1px solid #000",
+            color: "black",
+            textAlign: "center",
+            fontSize: "0.75em",
+            wordWrap: "break-word",
+            width: "325px",
+            fontFamily: "monospace"
           }}
           onClick={() => lovense.startPattern(index + 1)}
         >
-          <code
-            style={{
-              fontSize: "0.5em",
-              cursor: "pointer",
-              wordWrap: "break-word",
-              width: "192px",
-              display: "inline-block",
-              verticalAlign: "top"
-            }}
-          >
-            {pattern.map((value, index) => (
-              <span
-                key={index.toString()}
-                style={{
-                  opacity: 0.125 + (1 - 0.125) * value,
-                  background: "rgba(0, 0, 0, 0.25)"
-                }}
-              >
-                {Math.round(value * 9)}
-              </span>
-            ))}
-          </code>
-        </li>
+          {pattern.map((value, index) => (
+            <span
+              key={index.toString()}
+              style={{
+                opacity: 0.125 + (1 - 0.125) * value,
+                color: "#000",
+                background: "#888"
+              }}
+            >
+              {Math.round(value * 9)}
+            </span>
+          ))}
+        </div>
       ))}
-    </ol>
+    </div>
   );
 };
 
 const DeviceControl: FC<{ device: BluetoothDevice }> = ({ device }) => {
   const lovense = useLovense(device);
 
-  const [targetPower, setTargetPower] = useState(0.0);
+  const [targetLevel, setTargetLevel] = useState(0);
+  const targetPower = targetLevel / 20.0;
   const throttledTargetPower = useThrottledChanges(125, targetPower);
 
   const [info, setInfo] = useState<LovenseDeviceInfo>();
@@ -97,11 +91,43 @@ const DeviceControl: FC<{ device: BluetoothDevice }> = ({ device }) => {
     lovense.vibrate(throttledTargetPower);
   }, [lovense, throttledTargetPower]);
 
+  if (!lovense) {
+    return (
+      <>
+        {" "}
+        <div
+          style={{
+            boxSizing: "border-box",
+            border: "1px solid black",
+            color: "#000",
+            background: "#F8D8C8",
+            minHeight: "40px",
+            width: "128px",
+            fontSize: "14px",
+            fontFamily: "sans-serif",
+            padding: "4px",
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flexDirection: "column",
+            cursor: "default",
+            borderRadius: "4px",
+            borderTopLeftRadius: 0,
+            verticalAlign: "top"
+          }}
+        >
+          connecting...
+        </div>
+      </>
+    );
+  }
+
   return (
     <>
       {" "}
       <div
         style={{
+          display: "inline-flex",
           boxSizing: "border-box",
           border: "1px solid black",
           color: "#000",
@@ -111,9 +137,8 @@ const DeviceControl: FC<{ device: BluetoothDevice }> = ({ device }) => {
           fontSize: "14px",
           fontFamily: "sans-serif",
           padding: "4px",
-          display: "inline-flex",
           alignItems: "center",
-          justifyContent: "center",
+          justifyContent: "start",
           flexDirection: "column",
           cursor: "default",
           borderRadius: "4px",
@@ -122,12 +147,15 @@ const DeviceControl: FC<{ device: BluetoothDevice }> = ({ device }) => {
       >
         <div
           style={{
-            marginBottom: "8px"
+            marginBottom: "8px",
+            display: "flex",
+            flexDirection: "row",
+            justifyContent: "start",
+            alignItems: "center"
           }}
         >
           <span
             style={{
-              verticalAlign: "middle",
               fontSize: "30px",
               fontWeight: "bold",
               fontFamily: "Trebuchet MS"
@@ -138,8 +166,7 @@ const DeviceControl: FC<{ device: BluetoothDevice }> = ({ device }) => {
           {info && batch && (
             <div
               style={{
-                verticalAlign: "middle",
-                margin: "4px 12px",
+                margin: "0 12px",
                 textAlign: "center",
                 display: "inline-block",
                 fontSize: "12px",
@@ -153,42 +180,77 @@ const DeviceControl: FC<{ device: BluetoothDevice }> = ({ device }) => {
             </div>
           )}
           {battery != null && (
-            <div style={{ display: "inline-block", verticalAlign: "middle" }}>
-              {Math.floor(battery * 100)}%🔋
+            <div>
+              {Math.floor(battery * 100)}%
+              <span role="img" aria-label="Battery">
+                🔋
+              </span>
             </div>
           )}
         </div>
-        <form>
-          <code
-            style={{
-              verticalAlign: "top",
-              margin: "4px",
-              fontSize: "16px",
-              whiteSpace: "pre",
-              fontFamily: "consolas, monospace"
-            }}
-          >
-            {Math.floor(targetPower * 100)
-              .toString()
-              .padStart(3)}
-            %
-          </code>
+        {lovense && (
+          <>
+            <form
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "start",
+                flexDirection: "row"
+              }}
+            >
+              <span
+                role="img"
+                aria-label="Stop"
+                style={{
+                  fontSize: "3em",
+                  cursor: "pointer"
+                }}
+                onClick={() => {
+                  lovense.vibrate(0);
+                  lovense.stopPattern();
+                  setTargetLevel(0);
+                }}
+              >
+                🛑
+              </span>
+              <code
+                style={{
+                  verticalAlign: "top",
+                  margin: "4px",
+                  fontSize: "16px",
+                  whiteSpace: "pre",
+                  fontFamily: "consolas, monospace"
+                }}
+              >
+                {Math.floor(targetPower * 100)
+                  .toString()
+                  .padStart(3)}
+                %
+              </code>
 
-          <input
-            defaultValue="0"
-            min="0"
-            max="20"
-            type="range"
-            onChange={event => {
-              const power = Number(event.target.value) / 20.0;
-              setTargetPower(power);
-            }}
-            style={{
-              width: "225px"
-            }}
-          />
-        </form>
-        {lovense && patterns && <PatternsControl lovense={lovense} patterns={patterns} />}
+              <input
+                value={targetLevel}
+                min="0"
+                max="20"
+                type="range"
+                onChange={event => {
+                  const level = Number(event.target.value);
+                  setTargetLevel(level);
+                }}
+                style={{
+                  width: "225px",
+                  transform: "scaleY(2.0)"
+                }}
+              />
+            </form>
+            {patterns && info && (
+              <PatternsControl
+                lovense={lovense}
+                patterns={info.name == "Domi" ? patterns : patterns.slice(0, 3)}
+              />
+            )}
+          </>
+        )}
       </div>
     </>
   );

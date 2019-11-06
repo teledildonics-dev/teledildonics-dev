@@ -9,10 +9,12 @@ import { withEventStream } from "./events";
 import { addTimeout } from "./async";
 
 export default class Lovense implements AsyncDestroy {
+  // TODO: put this in an instance method, called it automatically when you need to, but
+  // don't treat it as part of initialization since it needs to be repeated.
+  // Which means you also need to redo the even lsitners... urg.
+
   /// Prompts the user for Bluetooth access to a local Lovense device,
   /// then connects to it.
-  ///
-  /// This must be called from a synchronous response to a user input event.
   public static async connect(device: BluetoothDevice): Promise<Lovense> {
     let lovense;
     {
@@ -141,16 +143,18 @@ export default class Lovense implements AsyncDestroy {
 
   /// Returns the battery level as a value between 0.0 and 1.0.
   public async battery(): Promise<number> {
-    return this.call("Battery;", async responses => {
+    const value = await this.call("Battery;", async responses => {
       const { value } = await responses.read();
-      const level = Number(unwrap(first(value.split(";"))));
-
-      if (!(Number.isSafeInteger(level) && 0 <= level && level <= 100)) {
-        throw new Error("Battery should be integer from 0-100.");
-      }
-
-      return level / 100.0;
+      return value;
     });
+
+    const level = Number(unwrap(first(value.split(";"))));
+
+    if (!(Number.isSafeInteger(level) && 0 <= level && level <= 100)) {
+      throw new Error("Battery should be integer from 0-100.");
+    }
+
+    return level / 100.0;
   }
 
   /// Returns the production batch date of this device.

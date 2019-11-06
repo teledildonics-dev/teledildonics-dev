@@ -43,8 +43,6 @@ export const throwIf = (error: Error | null) => {
 export type unsafe = any;
 
 /// A very basic async lock.
-///
-/// Unhandled exceptions while holding the lock will poison it.
 export class Lock implements AsyncDestroy {
   private tail: Promise<unknown> = Promise.resolve();
   private destroyed: boolean = false;
@@ -52,7 +50,8 @@ export class Lock implements AsyncDestroy {
 
   async use<T>(callback: () => Promise<T>): Promise<T> {
     const tail = this.tail.then(() => this.interrupts()).then(() => callback());
-    this.tail = tail;
+    // We don't want exceptions to poison the lock.
+    this.tail = this.tail.then(() => tail.catch(() => {}));
     return tail;
   }
 
