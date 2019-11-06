@@ -312,6 +312,24 @@ const App: FC = () => {
         fontFamily: "sans-serif"
       }}
     >
+      <div
+        style={{
+          border: "1px solid black",
+          color: "#000",
+          background: "#FFF8F0",
+          fontSize: "14px",
+          fontFamily: "sans-serif",
+          padding: "8px",
+          borderRadius: "4px",
+          display: "inline-block",
+          margin: "4px",
+          float: "right"
+        }}
+      >
+        teledildonics.dev: my control panel of pleasure. <br />
+        Buggy and unstable. Only supports some{" "}
+        <a href="https://www.lovense.com/compare">Lovense</a> devices.
+      </div>
       <DevicePanes />
     </main>
   );
