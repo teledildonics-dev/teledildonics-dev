@@ -1,8 +1,8 @@
 import React, { useState, FC, useEffect } from "react";
-import Lovense, { deviceProfile, LovenseDeviceInfo } from "./icy/lovense";
-import BluetoothSelector from "./icy/bluetoothselector";
-import { useThrottledChanges } from "./icy/generichooks";
-import { sleep, addTimeout } from "./icy/async";
+import Lovense, { deviceProfile, LovenseDeviceInfo } from "./tdd/lovense";
+import BluetoothSelector from "./tdd/bluetoothselector";
+import { useThrottledChanges } from "./tdd/generichooks";
+import { sleep, addTimeout } from "./tdd/async";
 
 const PatternsControl: FC<{ lovense: Lovense; patterns: Array<Array<number>> }> = ({
   lovense,
