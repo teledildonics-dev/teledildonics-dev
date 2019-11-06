@@ -52,43 +52,47 @@ export default class Lovense implements AsyncDestroy {
     console.debug(this.logPrefix(), "Connecting.");
 
     this.connectionCount += 1;
-    this.connected = (async () => {
-      await this.server.connect();
+    this.connected = addTimeout(
+      (async () => {
+        await this.server.connect();
 
-      const onMessage = (event: { target: { value: DataView } }) => {
-        assert(event && event.target && event.target.value instanceof DataView);
-        const binary: DataView = event.target.value;
+        const onMessage = (event: { target: { value: DataView } }) => {
+          assert(event && event.target && event.target.value instanceof DataView);
+          const binary: DataView = event.target.value;
 
-        const s = utf8.decode(binary);
-        console.debug(
-          `${this.logPrefix()} got  %c${s}`,
-          "color: #131; font-weight: bold; border: 1px solid #131; padding: 2px 6px; background: #EEE;"
-        );
-      };
-
-      const onDisconnected = () => {
-        console.info(this.logPrefix(), "Disconnected.");
-        this.connected = undefined;
-        this.device.removeEventListener("gattserverdisconnected", onDisconnected);
-        if (this.receiver) {
-          this.receiver.removeEventListener(
-            "characteristicvaluechanged",
-            onMessage as unsafe
+          const s = utf8.decode(binary);
+          console.debug(
+            `${this.logPrefix()} got  %c${s}`,
+            "color: #131; font-weight: bold; border: 1px solid #131; padding: 2px 6px; background: #EEE;"
           );
-        }
-      };
+        };
 
-      this.device.addEventListener("gattserverdisconnected", onDisconnected);
+        const onDisconnected = () => {
+          console.info(this.logPrefix(), "Disconnected.");
+          this.connected = undefined;
+          this.device.removeEventListener("gattserverdisconnected", onDisconnected);
+          if (this.receiver) {
+            this.receiver.removeEventListener(
+              "characteristicvaluechanged",
+              onMessage as unsafe
+            );
+          }
+        };
 
-      this.service = only(await this.server.getPrimaryServices());
-      this.characteristics = await this.service.getCharacteristics();
-      this.transmitter = only(this.characteristics.filter(c => c.properties.write));
-      this.receiver = only(this.characteristics.filter(c => !c.properties.write));
+        this.device.addEventListener("gattserverdisconnected", onDisconnected);
 
-      this.receiver.addEventListener("characteristicvaluechanged", onMessage as unsafe);
+        this.service = only(await this.server.getPrimaryServices());
+        this.characteristics = await this.service.getCharacteristics();
+        this.transmitter = only(this.characteristics.filter(c => c.properties.write));
+        this.receiver = only(this.characteristics.filter(c => !c.properties.write));
 
-      await this.receiver.startNotifications();
-    })();
+        this.receiver.addEventListener("characteristicvaluechanged", onMessage as unsafe);
+
+        await this.receiver.startNotifications();
+      })(),
+      6000,
+      new Error("Initial connection to Lovense timed out")
+    );
 
     this.connected.catch(() => {
       this.connected = undefined;
@@ -114,7 +118,7 @@ export default class Lovense implements AsyncDestroy {
 
   /// Runs a callback after ensure we're connected, and retries if it throws
   /// an error but the connection was lost.
-  public async retryingConnected<T>(f: () => T): Promise<T> {
+  private async retrying<T>(f: () => T): Promise<T> {
     while (true) {
       while (true) {
         try {
@@ -136,13 +140,19 @@ export default class Lovense implements AsyncDestroy {
             this.logPrefix(),
             "disconnected then",
             error,
-            "was thrown. Attempting to reconnect."
+            "was thrown. Retrying in 1s."
           );
           await sleep(500);
           await this.connect();
           continue;
         } else {
-          throw error;
+          console.error(
+            this.logPrefix(),
+            "didn't disconnnect but command still failed. Retrying in 10s.",
+            error
+          );
+          await sleep(10000);
+          continue;
         }
       }
     }
@@ -186,7 +196,7 @@ export default class Lovense implements AsyncDestroy {
     }
 
     return this.lock.use(async () =>
-      this.retryingConnected(() => {
+      this.retrying(() => {
         let result = withEventStream(
           this.receiver,
           "characteristicvaluechanged",
