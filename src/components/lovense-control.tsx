@@ -174,7 +174,7 @@ export const DeviceControl: FC<{ device: BluetoothDevice }> = ({ device }) => {
                 }}
                 onClick={() => {
                   lovense.vibrate(0);
-                  lovense.stopPattern();
+                  lovense.stop();
                   setTargetLevel(0);
                 }}
               >

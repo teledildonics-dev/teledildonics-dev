@@ -1,10 +1,10 @@
 /// Some utility functions to help manage types safely.
 
 /// Ensures a condition is truthy, or throws.
-export function assert(condition: boolean, message: string = "assertion failed") {
+export function assert(condition: unknown, message: string = "assertion failed") {
   // TODO: use `: asserts condition` above once babel/whatever can support it
 
-  if (!condition) {
+  if (condition === false || condition === null || condition === undefined) {
     throw new Error(message);
   }
 }
@@ -42,43 +42,33 @@ export const throwIf = (error: Error | null) => {
 /// Make it clearer.
 export type unsafe = any;
 
-/// A very basic async lock.
+/// A very basic async lock using a queue. Not premptible.
 export class Lock implements AsyncDestroy {
   private tail: Promise<unknown> = Promise.resolve();
-  private destroyed: boolean = false;
   private destruction: Promise<Error> | null = null;
 
   async use<T>(callback: () => Promise<T>): Promise<T> {
-    const tail = this.tail.then(() => this.interrupts()).then(() => callback());
+    const result = this.tail.then(() => callback());
     // We don't want exceptions to poison the lock.
-    this.tail = this.tail.then(() => tail.catch(() => {}));
-    return tail;
-  }
-
-  private async interrupts() {
-    if (this.destroyed) {
-      throw new Error("Lock destroyed");
-    }
+    this.tail = this.tail.then(() => result.catch(() => {}));
+    return result;
   }
 
   /// Poisons the lock. If the lock is currently held, this will wait until
   /// it's released, but will prempt any other uses that are pending.
   async destroy(): Promise<Error> {
-    if (this.destruction) {
-      return this.destruction;
+    if (!this.destruction) {
+      this.destruction = new Promise(async resolve => {
+        try {
+          await this.tail;
+        } catch (error) {
+          return resolve(error);
+        }
+        return resolve(new Error("Lock destroyed"));
+      });
     }
 
-    this.destroyed = true;
-    this.destruction = new Promise(async resolve => {
-      try {
-        await this.tail;
-      } catch (error) {
-        return resolve(error);
-      }
-      return resolve(new Error("Lock destroyed"));
-    });
-
-    return await this.destruction;
+    return this.destruction;
   }
 }
 

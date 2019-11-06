@@ -6,58 +6,172 @@
 import { assert, first, unwrap, only, unsafe, Lock, AsyncDestroy } from "../common/safety";
 import utf8 from "../common/utf8";
 import { withEventStream } from "../common/events";
-import { addTimeout } from "../common/async";
+import { addTimeout, sleep } from "../common/async";
+import { Model, modelsById } from "./models";
 
 export default class Lovense implements AsyncDestroy {
-  // TODO: put this in an instance method, called it automatically when you need to, but
-  // don't treat it as part of initialization since it needs to be repeated.
-  // Which means you also need to redo the even lsitners... urg.
-
-  /// Prompts the user for Bluetooth access to a local Lovense device,
-  /// then connects to it.
-  public static async connect(device: BluetoothDevice): Promise<Lovense> {
-    let lovense;
-    {
-      const server = await unwrap(device.gatt).connect();
-      const service = only(await server.getPrimaryServices());
-      const characteristics = await service.getCharacteristics();
-      const transmitter = only(characteristics.filter(c => c.properties.write));
-      const receiver = only(characteristics.filter(c => !c.properties.write));
-      receiver.startNotifications();
-      lovense = new Lovense(device, server, transmitter, receiver);
-    }
-
-    try {
-    } catch (error) {
-      lovense.destroy(error);
-      throw error;
-    }
-
-    return lovense;
-  }
-
-  private destroyed: Error | null = null;
-  private responseLogger: (event: unsafe) => void;
+  /// A lock used to serialize all Bluetooth calls, since the protocol isn't concurrency-safe.
   private lock: Lock = new Lock();
+  /// Returns an Promise<Error> if this instance is being or has been destroyed, else null.
+  private destroyed: Promise<Error> | null = null;
+  /// A promise for the result of an active connection attempt if one is in progress,
+  /// or undefined if we're disconnected and aren't currently tying to conect.
+  private connected: undefined | Promise<void>;
+  /// The number of times we have attempted to connect.
+  private connectionCount: number = 0;
 
+  private device: BluetoothDevice;
+  private server: BluetoothRemoteGATTServer;
+
+  /// Safety: these must only be accessed after we've connected (which initializes them).
+  private service: BluetoothRemoteGATTService = undefined as unsafe;
+  private characteristics: BluetoothRemoteGATTCharacteristic[] = undefined as unsafe;
+  private transmitter: BluetoothRemoteGATTCharacteristic = undefined as unsafe;
+  private receiver: BluetoothRemoteGATTCharacteristic = undefined as unsafe;
+
+  /// Maximum of time to wait for a response before we mark a call as failed.
   private callTimeout: number = 4000;
 
-  private constructor(
-    private device: BluetoothDevice,
-    private server: BluetoothRemoteGATTServer,
-    private transmitter: BluetoothRemoteGATTCharacteristic,
-    private receiver: BluetoothRemoteGATTCharacteristic
-  ) {
-    this.responseLogger = (event: unsafe) => {
-      assert(event && event.target && event.target.value instanceof DataView);
-      const binary: DataView = event.target.value;
-      const s = utf8.decode(binary);
-      console.debug(
-        `from ${this.device.name}: %c${s}`,
-        "color: #131; font-weight: bold; border: 1px solid #131; padding: 2px 6px; background: #EEE;"
-      );
-    };
-    this.receiver.addEventListener("characteristicvaluechanged", this.responseLogger);
+  public constructor(device: BluetoothDevice) {
+    this.device = device;
+    this.server = unwrap(device.gatt, "Bluetooth device did not support GATT");
+
+    this.connected = undefined;
+  }
+
+  private logPrefix(): string {
+    return `${this.device.name!.padStart(10)}:`;
+  }
+
+  /// Connects to the device if not already connected.
+  public async connect(): Promise<void> {
+    if (this.connected) {
+      return this.connected;
+    }
+
+    console.debug(this.logPrefix(), "Connecting.");
+
+    this.connectionCount += 1;
+    this.connected = (async () => {
+      await this.server.connect();
+
+      const onMessage = (event: { target: { value: DataView } }) => {
+        assert(event && event.target && event.target.value instanceof DataView);
+        const binary: DataView = event.target.value;
+
+        const s = utf8.decode(binary);
+        console.debug(
+          `${this.logPrefix()} got  %c${s}`,
+          "color: #131; font-weight: bold; border: 1px solid #131; padding: 2px 6px; background: #EEE;"
+        );
+      };
+
+      const onDisconnected = () => {
+        console.info(this.logPrefix(), "Disconnected.");
+        this.connected = undefined;
+        this.device.removeEventListener("gattserverdisconnected", onDisconnected);
+        if (this.receiver) {
+          this.receiver.removeEventListener(
+            "characteristicvaluechanged",
+            onMessage as unsafe
+          );
+        }
+      };
+
+      this.device.addEventListener("gattserverdisconnected", onDisconnected);
+
+      this.service = only(await this.server.getPrimaryServices());
+      this.characteristics = await this.service.getCharacteristics();
+      this.transmitter = only(this.characteristics.filter(c => c.properties.write));
+      this.receiver = only(this.characteristics.filter(c => !c.properties.write));
+
+      this.receiver.addEventListener("characteristicvaluechanged", onMessage as unsafe);
+
+      await this.receiver.startNotifications();
+    })();
+
+    this.connected.catch(() => {
+      this.connected = undefined;
+    });
+
+    return this.connected;
+  }
+
+  /// Disconnects from the device if connected.
+  public async disconnect(): Promise<void> {
+    if (this.connected) {
+      try {
+        await this.connected;
+      } catch (error) {
+        return;
+      }
+    }
+
+    console.debug(this.logPrefix(), "Disconnecting");
+
+    await this.server.disconnect();
+  }
+
+  /// Runs a callback after ensure we're connected, and retries if it throws
+  /// an error but the connection was lost.
+  public async retryingConnected<T>(f: () => T): Promise<T> {
+    while (true) {
+      while (true) {
+        try {
+          await this.connect();
+          break;
+        } catch (error) {
+          console.error(this.logPrefix(), "Failed to connect", error);
+          await sleep(500);
+          continue;
+        }
+      }
+
+      const connectionCount = this.connectionCount;
+      try {
+        return f();
+      } catch (error) {
+        if (this.connected === undefined || this.connectionCount > connectionCount) {
+          console.warn(
+            this.logPrefix(),
+            "disconnected then",
+            error,
+            "was thrown. Attempting to reconnect."
+          );
+          await sleep(500);
+          await this.connect();
+          continue;
+        } else {
+          throw error;
+        }
+      }
+    }
+  }
+
+  /// Cleans up all resources assocaited with this instance, disconnects, and makes it unusable.
+  public async destroy(error: Error = new Error("Lovense::destroy()ed")): Promise<Error> {
+    if (!this.destroyed) {
+      this.destroyed = (async () => {
+        try {
+          // Let any commands that are already called complete, but destroy the rest.
+          try {
+            await this.lock.use(async () => {
+              throw new Error("Lovense instance destroyed");
+            });
+          } catch (_) {}
+
+          await this.disconnect();
+
+          this.device = null as unsafe;
+          this.server = null as unsafe;
+          this.transmitter = null as unsafe;
+          this.receiver = null as unsafe;
+        } finally {
+          return error;
+        }
+      })();
+    }
+    return this.destroyed;
   }
 
   public async call<Result>(
@@ -67,12 +181,12 @@ export default class Lovense implements AsyncDestroy {
   ): Promise<Result> {
     if (handler === undefined) {
       // Only for convenience during debugging, since the static type signature requires a handler.
-      console.warn("call() handler was null");
+      console.warn(this.logPrefix(), "call() handler was null");
       handler = (async () => {}) as unsafe;
     }
 
     return this.lock.use(async () =>
-      this.retryingIfDisconnected(() => {
+      this.retryingConnected(() => {
         let result = withEventStream(
           this.receiver,
           "characteristicvaluechanged",
@@ -83,7 +197,7 @@ export default class Lovense implements AsyncDestroy {
           },
           async responses => {
             console.debug(
-              `  to ${this.device.name}: %c${request}`,
+              `${this.logPrefix()} sent %c${request}`,
               "color: purple; font-weight: bold; border: 1px solid purple; padding: 2px 6px; background: #EEE;"
             );
             await this.transmitter.writeValue(utf8.encode(request));
@@ -100,38 +214,12 @@ export default class Lovense implements AsyncDestroy {
     );
   }
 
-  public async destroy(error: Error = new Error("Lovense::destroy()ed")): Promise<Error> {
-    if (this.destroyed) {
-      return this.destroyed;
-    }
-
-    this.destroyed = error;
-
-    // Let any commands that are already called complete, but destroy the rest.
-    try {
-      await this.lock.use(async () => {
-        throw new Error("Lovense instance destroyed");
-      });
-    } catch (_) {}
-
-    this.receiver.removeEventListener("characteristicvaluechanged", this.responseLogger);
-    this.server.disconnect();
-
-    this.responseLogger = null as unsafe;
-    this.device = null as unsafe;
-    this.server = null as unsafe;
-    this.transmitter = null as unsafe;
-    this.receiver = null as unsafe;
-
-    return error;
-  }
-
   /// Returns information about the device
   public async info(): Promise<LovenseDeviceInfo> {
     return this.call("DeviceType;", async responses => {
       const { value } = await responses.read();
       const [id, firmware, serial] = value.slice(0, -1).split(":");
-      const name = modelNamesById.get(id)!;
+      const name = modelsById.get(id)!;
       return {
         id,
         name,
@@ -148,7 +236,19 @@ export default class Lovense implements AsyncDestroy {
       return value;
     });
 
-    const level = Number(unwrap(first(value.split(";"))));
+    let body = unwrap(first(value.split(";")));
+
+    if (body[0] === "s") {
+      console.warn(
+        this.logPrefix(),
+        "Got `s` prefix in battery value. Not sure why this happens."
+      );
+      // This seems to be what happens if you request the battery level while it's currently vibrating.
+      // Maybe it's the way you check if it's active, so you know if you need to stop it?
+      body = body.slice(1);
+    }
+
+    const level = Number(body);
 
     if (!(Number.isSafeInteger(level) && 0 <= level && level <= 100)) {
       throw new Error("Battery should be integer from 0-100.");
@@ -270,40 +370,17 @@ export default class Lovense implements AsyncDestroy {
     });
   }
 
-  /// Stops running a programmed pattern.
-  public async stopPattern(): Promise<void> {
-    return this.startPattern(0);
-  }
-
-  /// If the specified function throws an error, but the server has been disconnected, retry.
-  public async retryingIfDisconnected<T>(f: () => T): Promise<T> {
-    if (!this.server.connected) {
-      await this.server.connect();
-    }
-    while (true) {
-      try {
-        return f();
-      } catch (error) {
-        if (!this.server.connected) {
-          console.warn(
-            this,
-            "disconnected then",
-            error,
-            "was thrown. Attempting to reconnect."
-          );
-          await this.server.connect();
-          continue;
-        } else {
-          throw error;
-        }
-      }
-    }
+  /// Stops all activity on the device.
+  public async stop(): Promise<void> {
+    await this.vibrate(0);
+    // await this.rotate(0);
+    // return this.startPattern(0);
   }
 }
 
 export type LovenseDeviceInfo = {
   id: string;
-  name: ModelName;
+  name: Model;
   firmware: number;
   serial: string;
 };
@@ -323,17 +400,3 @@ export const deviceProfile = {
       .flat(3)
   ]
 };
-
-/// The name corresponding to each Lovense model identifier used in the DeviceType response.
-const modelNamesById = new Map<string, ModelName>([
-  ["A", "Nora"],
-  ["C", "Nora"],
-  ["B", "Max"],
-  ["S", "Lush"],
-  ["Z", "Hush"],
-  ["W", "Domi"],
-  ["P", "Edge"],
-  ["O", "Osci"]
-]);
-
-export type ModelName = "Nora" | "Max" | "Lush" | "Hush" | "Domi" | "Edge" | "Osci";

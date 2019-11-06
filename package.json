@@ -2,6 +2,7 @@
   "name": "teledildonics-dev",
   "version": "0.1.0",
   "private": true,
+  "license": "UNLICENSED",
   "dependencies": {
     "@types/jest": "24.0.21",
     "@types/node": "12.12.5",

@@ -1,27 +1,24 @@
 import Lovense from "../lovense/lovense";
 import { useState, useEffect } from "react";
-import { addTimeout, sleep } from "../common/async";
 
 export const useLovense = (device: BluetoothDevice): Lovense | null => {
-  const [lovense, setLovense] = useState();
+  const [lovense, setState] = useState();
 
   useEffect(() => {
-    const lovense = (async () => {
-      while (true) {
-        try {
-          return await addTimeout(Lovense.connect(device), 4000);
-        } catch (error) {
-          console.error("Failed to connect Lovense:", error);
-          await sleep(1000);
-          console.info("Re-attempting to connect Lovense...");
-        }
-      }
-    })();
+    const lovense = new Lovense(device);
 
-    lovense.then(setLovense);
+    setState(lovense);
 
     return () => {
-      lovense.then(lovense => lovense.destroy());
+      (async () => {
+        try {
+          await lovense.stop();
+        } catch (error) {
+          console.error("Error from stop command while cleaning up useLovense():", error);
+        }
+        await lovense.disconnect();
+        await lovense.destroy();
+      })();
     };
   }, [device]);
 
