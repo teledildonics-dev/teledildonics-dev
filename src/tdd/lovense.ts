@@ -288,11 +288,13 @@ export const deviceProfile = {
   optionalServices: [
     "0000fff0-0000-1000-8000-00805f9b34fb",
     "6e400001-b5a3-f393-e0a9-e50e24dcca9e",
-    ...[..."34"]
-      .map(y =>
-        [..."0123456789abcdef"].map(x => `5${x}300001-002${y}-4bd4-bbd5-a6920e4c5653`)
+    ...[..."45"]
+      .map(a =>
+        [..."0123456789abcdef"].map(b =>
+          [..."34"].map(c => `${a}${b}300001-002${c}-4bd4-bbd5-a6920e4c5653`)
+        )
       )
-      .flat()
+      .flat(3)
   ]
 };
 
