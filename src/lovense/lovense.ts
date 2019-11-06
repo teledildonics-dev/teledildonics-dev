@@ -3,10 +3,10 @@
 /// See protocol documentation at
 /// https://stpihkal.docs.buttplug.io/hardware/lovense.html.
 
-import { assert, first, unwrap, only, unsafe, Lock, AsyncDestroy } from "./safety";
-import utf8 from "./utf8";
-import { withEventStream } from "./events";
-import { addTimeout } from "./async";
+import { assert, first, unwrap, only, unsafe, Lock, AsyncDestroy } from "../common/safety";
+import utf8 from "../common/utf8";
+import { withEventStream } from "../common/events";
+import { addTimeout } from "../common/async";
 
 export default class Lovense implements AsyncDestroy {
   // TODO: put this in an instance method, called it automatically when you need to, but
@@ -179,7 +179,33 @@ export default class Lovense implements AsyncDestroy {
 
     return this.call(`Vibrate:${level};`, async responses => {
       const { value } = await responses.read();
-      assert(value === "OK;", "Unexpected response to vibration command.");
+      assert(value === "OK;", "Unexpected response to Vibrate command.");
+    });
+  }
+
+  /// Set the rotation level to a value between 0.0 and 1.0.
+  public async rotate(power: number): Promise<void> {
+    if (!(0 <= power && power <= 1.0)) {
+      throw new Error("Power must be from 0.0-1.0.");
+    }
+
+    const level = Math.round(power * 20.0);
+
+    if (!(Number.isSafeInteger(level) && 0 <= level && level <= 20)) {
+      throw new Error("Level must be integer from 0-20.");
+    }
+
+    return this.call(`Rotate:${level};`, async responses => {
+      const { value } = await responses.read();
+      assert(value === "OK;", "Unexpected response to Rotate command.");
+    });
+  }
+
+  /// Toggles the direction of rotation.
+  public async toggleRotationDirection(): Promise<void> {
+    return this.call(`RotateChange;`, async responses => {
+      const { value } = await responses.read();
+      assert(value === "OK;", "Unexpected response to RotateChange command.");
     });
   }
 

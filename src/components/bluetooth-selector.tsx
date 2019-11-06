@@ -1,6 +1,9 @@
 import React, { useState, FC, CSSProperties } from "react";
 
 const baseStyles: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
   boxSizing: "border-box",
   border: "1px solid black",
   color: "#000",
@@ -10,16 +13,15 @@ const baseStyles: CSSProperties = {
   fontSize: "14px",
   fontFamily: "sans-serif",
   padding: "4px",
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
   cursor: "default",
   borderRadius: "4px",
-  verticalAlign: "top"
+  verticalAlign: "top",
+  position: "relative",
+  overflow: "hidden"
 };
 
 export const BluetoothSelector: FC<{
-  onChange: (event: { target: { value: BluetoothDevice } }) => void;
+  onChange: (event: { target: { value: BluetoothDevice | undefined } }) => void;
   options: RequestDeviceOptions;
   style?: CSSProperties;
 }> = ({ onChange, options = { acceptAllDevices: true }, style = {} }) => {
@@ -58,7 +60,49 @@ export const BluetoothSelector: FC<{
     );
   } else {
     return (
-      <span style={{ ...baseStyles, background: "#BDC", ...style }}>ᛒᚼ {device.name}</span>
+      <span style={{ ...baseStyles, background: "#BDC", ...style }}>
+        <span
+          style={{
+            background: "#DBB",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            cursor: "pointer",
+            fontWeight: "bold",
+            position: "absolute",
+            left: 0,
+            top: 0,
+            bottom: 0,
+            width: "32px",
+            textAlign: "center",
+            borderRight: "1px solid black",
+            fontSize: "2em"
+          }}
+          onClick={() => {
+            setDevice(undefined);
+            setRequested(false);
+            onChange({ target: { value: undefined } });
+          }}
+        >
+          ×
+        </span>
+
+        <span
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            position: "absolute",
+            right: 0,
+            top: 0,
+            bottom: 0,
+            left: "32px",
+            textAlign: "center"
+          }}
+        >
+          ᛒᚼ {device.name}
+        </span>
+      </span>
     );
   }
 };

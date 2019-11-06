@@ -1,51 +1,10 @@
 import React, { useState, FC, useEffect } from "react";
-import Lovense, { deviceProfile, LovenseDeviceInfo } from "./tdd/lovense";
-import BluetoothSelector from "./tdd/bluetoothselector";
-import { useThrottledChanges } from "./tdd/generichooks";
-import { sleep, addTimeout } from "./tdd/async";
+import { useLovense } from "../hooks/lovense";
+import { useThrottledChanges } from "../hooks/throttle";
+import { LovenseDeviceInfo } from "../lovense/lovense";
+import { PatternsControl } from "./patterns";
 
-const PatternsControl: FC<{ lovense: Lovense; patterns: Array<Array<number>> }> = ({
-  lovense,
-  patterns
-}) => {
-  return (
-    <div style={{}}>
-      {patterns.map((pattern, index) => (
-        <div
-          key={index.toString()}
-          style={{
-            cursor: "pointer",
-            margin: "8px",
-            background: "#FFF",
-            border: "1px solid #000",
-            color: "black",
-            textAlign: "center",
-            fontSize: "0.75em",
-            wordWrap: "break-word",
-            width: "325px",
-            fontFamily: "monospace"
-          }}
-          onClick={() => lovense.startPattern(index + 1)}
-        >
-          {pattern.map((value, index) => (
-            <span
-              key={index.toString()}
-              style={{
-                opacity: 0.125 + (1 - 0.125) * value,
-                color: "#000",
-                background: "#888"
-              }}
-            >
-              {Math.round(value * 9)}
-            </span>
-          ))}
-        </div>
-      ))}
-    </div>
-  );
-};
-
-const DeviceControl: FC<{ device: BluetoothDevice }> = ({ device }) => {
+export const DeviceControl: FC<{ device: BluetoothDevice }> = ({ device }) => {
   const lovense = useLovense(device);
 
   const [targetLevel, setTargetLevel] = useState(0);
@@ -65,6 +24,10 @@ const DeviceControl: FC<{ device: BluetoothDevice }> = ({ device }) => {
 
     const info = lovense.info();
     info.then(info => {
+      if (!lovense) {
+        return;
+      }
+
       setInfo(info);
       if (["Lush", "Domi"].includes(info.name)) {
         lovense.patterns().then(setPatterns);
@@ -74,6 +37,10 @@ const DeviceControl: FC<{ device: BluetoothDevice }> = ({ device }) => {
     lovense.battery().then(setBattery);
 
     let batteryPollInterval = setInterval(() => {
+      if (!lovense) {
+        return;
+      }
+
       lovense.battery().then(setBattery);
     }, 60 * 1000);
 
@@ -190,7 +157,7 @@ const DeviceControl: FC<{ device: BluetoothDevice }> = ({ device }) => {
         </div>
         {lovense && (
           <>
-            <form
+            <div
               style={{
                 display: "flex",
                 alignItems: "center",
@@ -213,6 +180,15 @@ const DeviceControl: FC<{ device: BluetoothDevice }> = ({ device }) => {
               >
                 🛑
               </span>
+
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "start",
+                  flexDirection: "column"
+                }}
+              ></div>
               <code
                 style={{
                   verticalAlign: "top",
@@ -242,7 +218,7 @@ const DeviceControl: FC<{ device: BluetoothDevice }> = ({ device }) => {
                   transform: "scaleY(2.0)"
                 }}
               />
-            </form>
+            </div>
             {patterns && info && (
               <PatternsControl
                 lovense={lovense}
@@ -255,89 +231,3 @@ const DeviceControl: FC<{ device: BluetoothDevice }> = ({ device }) => {
     </>
   );
 };
-
-const useLovense = (device: BluetoothDevice): Lovense | null => {
-  const [lovense, setLovense] = useState();
-
-  useEffect(() => {
-    const lovense = (async () => {
-      while (true) {
-        try {
-          return await addTimeout(Lovense.connect(device), 4000);
-        } catch (error) {
-          console.error("Failed to connect Lovense:", error);
-          await sleep(4000);
-          console.info("Re-attempting to connect Lovense...");
-        }
-      }
-    })();
-
-    lovense.then(setLovense);
-
-    return () => {
-      lovense.then(lovense => lovense.destroy());
-    };
-  }, [device]);
-
-  return lovense;
-};
-
-const DevicePanes: FC = () => {
-  const [device, setDevice] = useState<BluetoothDevice>();
-
-  return (
-    <>
-      <section
-        style={{
-          margin: "4px"
-        }}
-      >
-        <BluetoothSelector
-          options={deviceProfile}
-          onChange={event => setDevice(event.target.value)}
-        ></BluetoothSelector>
-        {device && <DeviceControl device={device}></DeviceControl>}
-      </section>
-
-      {device && <DevicePanes />}
-    </>
-  );
-};
-
-const App: FC = () => {
-  return (
-    <main
-      style={{
-        margin: "32px",
-        fontFamily: "sans-serif"
-      }}
-    >
-      <div
-        style={{
-          border: "1px solid black",
-          color: "#000",
-          background: "#FFF8F0",
-          fontSize: "12px",
-          fontFamily: "sans-serif",
-          padding: "10px",
-          borderRadius: "4px",
-          display: "inline-block",
-          margin: "4px",
-          float: "right",
-          lineHeight: "18px"
-        }}
-      >
-        teledildonics.dev: my remote control playground. <br />
-        Buggy and unstable.{" "}
-        <a href="https://github.com/teledildonics-dev/teledildonics-dev">
-          View source here
-        </a>
-        .<br />
-        Only supports some <a href="https://www.lovense.com/compare">Lovense</a> devices.
-      </div>
-      <DevicePanes />
-    </main>
-  );
-};
-
-export default App;
