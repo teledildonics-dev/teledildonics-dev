@@ -1,4 +1,4 @@
-import React, { useState, FC, useEffect, useRef } from "react";
+import React, { useState, FC, useEffect, useRef, useCallback } from "react";
 import { useLovense } from "../hooks/lovense";
 import { useThrottledChanges } from "../hooks/throttle";
 import { LovenseDeviceInfo } from "../lovense/lovense";
@@ -20,12 +20,16 @@ export const DeviceControl: FC<{ device: BluetoothDevice }> = ({ device }) => {
   const [battery, setBattery] = useState<number>();
   const [patterns, setPatterns] = useState<Array<Array<number>>>();
 
-  const lovense = useLovense(device, undefined, () => {
-    // If we disconnect, set everything to zero to make sure we are in a consistent
-    // state with the toy when it reconnects.
-    setTargetVibrationLevel(0);
-    setTargetRotationLevel(0);
-  });
+  const lovense = useLovense(
+    device,
+    undefined,
+    useCallback(() => {
+      // If we disconnect, set everything to zero to make sure we are in a consistent
+      // state with the toy when it reconnects.
+      setTargetVibrationLevel(0);
+      setTargetRotationLevel(0);
+    }, [])
+  );
 
   /// Fetch device info once it's available.
   useEffect(() => {
@@ -40,7 +44,8 @@ export const DeviceControl: FC<{ device: BluetoothDevice }> = ({ device }) => {
       }
 
       setInfo(info);
-      if (["Lush", "Domi"].includes(info.model)) {
+
+      if (info.capabilities.patterns) {
         lovense.patterns().then(setPatterns);
       }
     });
@@ -62,16 +67,24 @@ export const DeviceControl: FC<{ device: BluetoothDevice }> = ({ device }) => {
 
   /// Set device vibration power when it changes.
   useEffect(() => {
-    if (!lovense) {
+    if (!(lovense && info)) {
+      return;
+    }
+
+    if (!info.capabilities.vibration) {
       return;
     }
 
     lovense.vibrate(throttledTargetVibrationPower);
-  }, [lovense, throttledTargetVibrationPower]);
+  }, [lovense, info, throttledTargetVibrationPower]);
 
   /// Set device rotation power and direction when it changes.
   useEffect(() => {
-    if (!lovense) {
+    if (!(lovense && info)) {
+      return;
+    }
+
+    if (!info.capabilities.rotation) {
       return;
     }
 
@@ -84,7 +97,7 @@ export const DeviceControl: FC<{ device: BluetoothDevice }> = ({ device }) => {
     }
 
     lovense.rotate(Math.abs(throttledTargetRotationPower));
-  }, [lovense, throttledTargetRotationPower]);
+  }, [lovense, info, throttledTargetRotationPower]);
 
   if (!lovense) {
     return (

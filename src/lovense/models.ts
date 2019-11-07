@@ -18,10 +18,6 @@ export const Osci = Model.Osci;
 
 /// The capabilities of a given Lovense device.
 export type DeviceCapabilities = {
-  /// Whether this device supports the DeviceInfo command.
-  readonly info: true;
-  /// Whether this device support the Battery command.
-  readonly battery: true;
   /// Whether this device supports the Vibrate:# command.
   readonly vibration?: undefined | true;
   /// Whether this device supports the Rotate:# and RotateChange commands.
@@ -42,8 +38,6 @@ export const modelCapabilities = new Map<Model, DeviceCapabilities>([
   [
     Nora,
     {
-      info: true,
-      battery: true,
       vibration: true,
       rotation: true
     }
@@ -51,8 +45,6 @@ export const modelCapabilities = new Map<Model, DeviceCapabilities>([
   [
     Lush,
     {
-      info: true,
-      battery: true,
       vibration: true,
       patterns: 4
     }
@@ -60,16 +52,12 @@ export const modelCapabilities = new Map<Model, DeviceCapabilities>([
   [
     Hush,
     {
-      info: true,
-      battery: true,
       vibration: true
     }
   ],
   [
     Domi,
     {
-      info: true,
-      battery: true,
       vibration: true,
       levels: 3,
       patterns: 10

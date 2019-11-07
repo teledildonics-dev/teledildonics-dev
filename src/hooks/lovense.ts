@@ -28,15 +28,15 @@ export const useLovense = (
     return () => {
       (async () => {
         try {
-          await lovense.stop();
+          lovense.stop();
         } catch (error) {
           console.error("Error from stop command while cleaning up useLovense():", error);
         }
-        await lovense.disconnect();
+        lovense.disconnect();
         await lovense.destroy();
       })();
     };
-  }, [device]);
+  }, [device, onConnect, onDisconnect]);
 
   return lovense;
 };
