@@ -44,7 +44,7 @@ export default class Lovense implements AsyncDestroy {
   }
 
   private logPrefix(): string {
-    return `${this.device.name!.padStart(10)}:`;
+    return `${(this.device.name || this.device.id).slice(0, 10).padStart(10)}:`;
   }
 
   public addEventListener(type: EventType, listener: (event: unknown) => void): unknown {
@@ -57,6 +57,10 @@ export default class Lovense implements AsyncDestroy {
 
   /// Connects to the device if not already connected.
   public async connect(): Promise<void> {
+    if (this.destroyed) {
+      throw await this.destroyed;
+    }
+
     if (this.connected) {
       return this.connected;
     }
@@ -67,6 +71,10 @@ export default class Lovense implements AsyncDestroy {
     this.connected = addTimeout(
       (async () => {
         await this.server.connect();
+
+        if (this.destroyed) {
+          throw await this.destroyed;
+        }
 
         const onMessage = (event: { target: { value: DataView } }) => {
           assert(event && event.target && event.target.value instanceof DataView);
@@ -104,6 +112,10 @@ export default class Lovense implements AsyncDestroy {
         await this.receiver.startNotifications();
 
         this.eventTarget.dispatchEvent(new Event("connect"));
+
+        if (this.destroyed) {
+          throw await this.destroyed;
+        }
       })(),
       6000,
       new Error("Initial connection to Lovense timed out")
@@ -136,6 +148,10 @@ export default class Lovense implements AsyncDestroy {
   private async connectAndRetry<T>(f: () => T): Promise<T> {
     while (true) {
       while (true) {
+        if (this.destroyed) {
+          throw await this.destroyed;
+        }
+
         try {
           await this.connect();
           break;
@@ -204,6 +220,10 @@ export default class Lovense implements AsyncDestroy {
     handler: (responses: ReadableStreamReader<string>) => Promise<Result>,
     timeout: number | undefined = this.callTimeout
   ): Promise<Result> {
+    if (this.destroyed) {
+      throw await this.destroyed;
+    }
+
     if (handler === undefined) {
       // Only for convenience during debugging, since the static type signature requires a handler.
       console.warn(this.logPrefix(), "call() handler was null");
@@ -417,6 +437,7 @@ export default class Lovense implements AsyncDestroy {
   }
 }
 
+/// The information we get or derive from the DeviceType call.
 export type LovenseDeviceInfo = {
   id: string;
   model: Model;
