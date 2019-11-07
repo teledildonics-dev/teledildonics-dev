@@ -17,3 +17,4 @@ jobs:
           BRANCH: gh-pages
           FOLDER: build
           BUILD_SCRIPT: yarn && yarn build
+          CNAME: teledildonics.dev
