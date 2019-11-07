@@ -5,13 +5,11 @@ import { LovenseDeviceInfo } from "../lovense/lovense";
 import { PatternsControl } from "./patterns";
 
 export const DeviceControl: FC<{ device: BluetoothDevice }> = ({ device }) => {
-  const lovense = useLovense(device);
+  const [targetVibrationLevel, setTargetVibrationLevel] = useState(0);
+  const targetVibrationPower = targetVibrationLevel / 20.0;
+  const throttledTargetVibrationPower = useThrottledChanges(125, targetVibrationPower);
 
-  const [targetLevel, setTargetLevel] = useState(0);
-  const targetPower = targetLevel / 20.0;
-  const throttledTargetPower = useThrottledChanges(125, targetPower);
-
-  const directionToggled = useRef(false);
+  const rotationDirectionToggled = useRef(false);
 
   const [targetRotationLevel, setTargetRotationLevel] = useState(0);
   const targetRotationPower = targetRotationLevel / 20.0;
@@ -21,6 +19,13 @@ export const DeviceControl: FC<{ device: BluetoothDevice }> = ({ device }) => {
   const [batch, setBatch] = useState<number>();
   const [battery, setBattery] = useState<number>();
   const [patterns, setPatterns] = useState<Array<Array<number>>>();
+
+  const lovense = useLovense(device, undefined, () => {
+    // If we disconnect, set everything to zero to make sure we are in a consistent
+    // state with the toy when it reconnects.
+    setTargetVibrationLevel(0);
+    setTargetRotationLevel(0);
+  });
 
   /// Fetch device info once it's available.
   useEffect(() => {
@@ -61,8 +66,8 @@ export const DeviceControl: FC<{ device: BluetoothDevice }> = ({ device }) => {
       return;
     }
 
-    lovense.vibrate(throttledTargetPower);
-  }, [lovense, throttledTargetPower]);
+    lovense.vibrate(throttledTargetVibrationPower);
+  }, [lovense, throttledTargetVibrationPower]);
 
   /// Set device rotation power and direction when it changes.
   useEffect(() => {
@@ -70,12 +75,12 @@ export const DeviceControl: FC<{ device: BluetoothDevice }> = ({ device }) => {
       return;
     }
 
-    if (throttledTargetRotationPower < 0 && !directionToggled.current) {
+    if (throttledTargetRotationPower < 0 && !rotationDirectionToggled.current) {
       lovense.toggleRotationDirection();
-      directionToggled.current = true;
-    } else if (throttledTargetRotationPower > 0 && directionToggled.current) {
+      rotationDirectionToggled.current = true;
+    } else if (throttledTargetRotationPower > 0 && rotationDirectionToggled.current) {
       lovense.toggleRotationDirection();
-      directionToggled.current = false;
+      rotationDirectionToggled.current = false;
     }
 
     lovense.rotate(Math.abs(throttledTargetRotationPower));
@@ -199,7 +204,7 @@ export const DeviceControl: FC<{ device: BluetoothDevice }> = ({ device }) => {
                 }}
                 onClick={() => {
                   setTargetRotationLevel(0);
-                  setTargetLevel(0);
+                  setTargetVibrationLevel(0);
                   lovense.stop();
                 }}
               >
@@ -215,20 +220,20 @@ export const DeviceControl: FC<{ device: BluetoothDevice }> = ({ device }) => {
                   fontFamily: "consolas, monospace"
                 }}
               >
-                {Math.floor(targetPower * 100)
+                {Math.floor(targetVibrationPower * 100)
                   .toString()
                   .padStart(3)}
                 %
               </code>
 
               <input
-                value={targetLevel}
+                value={targetVibrationLevel}
                 min="0"
                 max="20"
                 type="range"
                 onChange={event => {
                   const level = Number(event.target.value);
-                  setTargetLevel(level);
+                  setTargetVibrationLevel(level);
                 }}
                 style={{
                   cursor: "pointer",

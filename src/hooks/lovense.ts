@@ -1,11 +1,27 @@
 import Lovense from "../lovense/lovense";
 import { useState, useEffect } from "react";
 
-export const useLovense = (device: BluetoothDevice): Lovense | null => {
+export const useLovense = (
+  device: BluetoothDevice,
+  onConnect?: (_: Lovense) => void,
+  onDisconnect?: (_: Lovense) => void
+): Lovense | null => {
   const [lovense, setState] = useState();
 
   useEffect(() => {
     const lovense = new Lovense(device);
+
+    if (onConnect) {
+      lovense.addEventListener("connect", () => {
+        onConnect(lovense);
+      });
+    }
+
+    if (onDisconnect) {
+      lovense.addEventListener("disconnect", () => {
+        onDisconnect(lovense);
+      });
+    }
 
     setState(lovense);
 

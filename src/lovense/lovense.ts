@@ -9,6 +9,8 @@ import { withEventStream } from "../common/events";
 import { addTimeout, sleep } from "../common/async";
 import { Model, modelsById, modelCapabilities, DeviceCapabilities } from "./models";
 
+type EventType = "connect" | "disconnect";
+
 export default class Lovense implements AsyncDestroy {
   /// A lock used to serialize all Bluetooth calls, since the protocol isn't concurrency-safe.
   private lock: Lock = new Lock();
@@ -32,6 +34,8 @@ export default class Lovense implements AsyncDestroy {
   /// Maximum of time to wait for a response before we mark a call as failed.
   private callTimeout: number = 4000;
 
+  private eventTarget = new EventTarget();
+
   public constructor(device: BluetoothDevice) {
     this.device = device;
     this.server = unwrap(device.gatt, "Bluetooth device did not support GATT");
@@ -41,6 +45,14 @@ export default class Lovense implements AsyncDestroy {
 
   private logPrefix(): string {
     return `${this.device.name!.padStart(10)}:`;
+  }
+
+  public addEventListener(type: EventType, listener: (event: unknown) => void): unknown {
+    return this.eventTarget.addEventListener(type, listener);
+  }
+
+  public removeEventListener(type: EventType, listener: (event: unknown) => void): unknown {
+    return this.removeEventListener(type, listener);
   }
 
   /// Connects to the device if not already connected.
@@ -77,6 +89,7 @@ export default class Lovense implements AsyncDestroy {
               onMessage as unsafe
             );
           }
+          this.eventTarget.dispatchEvent(new Event("disconnect"));
         };
 
         this.device.addEventListener("gattserverdisconnected", onDisconnected);
@@ -89,6 +102,8 @@ export default class Lovense implements AsyncDestroy {
         this.receiver.addEventListener("characteristicvaluechanged", onMessage as unsafe);
 
         await this.receiver.startNotifications();
+
+        this.eventTarget.dispatchEvent(new Event("connect"));
       })(),
       6000,
       new Error("Initial connection to Lovense timed out")
