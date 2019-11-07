@@ -23,15 +23,15 @@ export type DeviceCapabilities = {
   /// Whether this device support the Battery command.
   readonly battery: true;
   /// Whether this device supports the Vibrate:# command.
-  readonly vibration?: void | true;
+  readonly vibration?: undefined | true;
   /// Whether this device supports the Rotate:# and RotateChange commands.
-  readonly rotation?: void | true;
+  readonly rotation?: undefined | true;
   /// Whether this device supports the GetLevel and SetLevel:#:# commands.
   /// If defined, this will indicate the maximum supported index for SetLevel:#:#.
-  readonly levels?: void | 3;
+  readonly levels?: undefined | 3;
   /// Whether this device supports the GetPatten, GetPatten:#, and Preset:# commands.
   /// If defined, this will indicate the maximum supported index for Preset:#.
-  readonly patterns?: void | 4 | 10;
+  readonly patterns?: undefined | 4 | 10;
 };
 
 /// The capabilities we expect from each model.

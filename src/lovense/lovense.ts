@@ -7,7 +7,7 @@ import { assert, first, unwrap, only, unsafe, Lock, AsyncDestroy } from "../comm
 import utf8 from "../common/utf8";
 import { withEventStream } from "../common/events";
 import { addTimeout, sleep } from "../common/async";
-import { Model, modelsById } from "./models";
+import { Model, modelsById, modelCapabilities, DeviceCapabilities } from "./models";
 
 export default class Lovense implements AsyncDestroy {
   /// A lock used to serialize all Bluetooth calls, since the protocol isn't concurrency-safe.
@@ -118,7 +118,7 @@ export default class Lovense implements AsyncDestroy {
 
   /// Runs a callback after ensure we're connected, and retries if it throws
   /// an error but the connection was lost.
-  private async retrying<T>(f: () => T): Promise<T> {
+  private async connectAndRetry<T>(f: () => T): Promise<T> {
     while (true) {
       while (true) {
         try {
@@ -196,7 +196,7 @@ export default class Lovense implements AsyncDestroy {
     }
 
     return this.lock.use(async () =>
-      this.retrying(() => {
+      this.connectAndRetry(() => {
         let result = withEventStream(
           this.receiver,
           "characteristicvaluechanged",
@@ -224,18 +224,28 @@ export default class Lovense implements AsyncDestroy {
     );
   }
 
+  /// The DeviceType response never changes, so we can cache it as soon as we have it.
+  private cachedInfo: undefined | LovenseDeviceInfo = undefined;
+
   /// Returns information about the device
   public async info(): Promise<LovenseDeviceInfo> {
+    if (this.cachedInfo) {
+      return this.cachedInfo;
+    }
+
     return this.call("DeviceType;", async responses => {
       const { value } = await responses.read();
       const [id, firmware, serial] = value.slice(0, -1).split(":");
-      const name = modelsById.get(id)!;
-      return {
+      const model = unwrap(modelsById.get(id));
+      const capabilities = unwrap(modelCapabilities.get(model));
+      this.cachedInfo = {
         id,
-        name,
+        model,
         firmware: Number(firmware),
+        capabilities,
         serial
       };
+      return this.cachedInfo;
     });
   }
 
@@ -382,15 +392,20 @@ export default class Lovense implements AsyncDestroy {
 
   /// Stops all activity on the device.
   public async stop(): Promise<void> {
-    await this.vibrate(0);
-    // await this.rotate(0);
-    // return this.startPattern(0);
+    const { capabilities } = await this.info();
+    if (capabilities.vibration) {
+      await this.vibrate(0);
+    }
+    if (capabilities.rotation) {
+      await this.rotate(0);
+    }
   }
 }
 
 export type LovenseDeviceInfo = {
   id: string;
-  name: Model;
+  model: Model;
+  capabilities: DeviceCapabilities;
   firmware: number;
   serial: string;
 };

@@ -1,4 +1,4 @@
-import React, { useState, FC, useEffect } from "react";
+import React, { useState, FC, useEffect, useRef } from "react";
 import { useLovense } from "../hooks/lovense";
 import { useThrottledChanges } from "../hooks/throttle";
 import { LovenseDeviceInfo } from "../lovense/lovense";
@@ -10,6 +10,12 @@ export const DeviceControl: FC<{ device: BluetoothDevice }> = ({ device }) => {
   const [targetLevel, setTargetLevel] = useState(0);
   const targetPower = targetLevel / 20.0;
   const throttledTargetPower = useThrottledChanges(125, targetPower);
+
+  const directionToggled = useRef(false);
+
+  const [targetRotationLevel, setTargetRotationLevel] = useState(0);
+  const targetRotationPower = targetRotationLevel / 20.0;
+  const throttledTargetRotationPower = useThrottledChanges(125, targetRotationPower);
 
   const [info, setInfo] = useState<LovenseDeviceInfo>();
   const [batch, setBatch] = useState<number>();
@@ -29,7 +35,7 @@ export const DeviceControl: FC<{ device: BluetoothDevice }> = ({ device }) => {
       }
 
       setInfo(info);
-      if (["Lush", "Domi"].includes(info.name)) {
+      if (["Lush", "Domi"].includes(info.model)) {
         lovense.patterns().then(setPatterns);
       }
     });
@@ -57,6 +63,23 @@ export const DeviceControl: FC<{ device: BluetoothDevice }> = ({ device }) => {
 
     lovense.vibrate(throttledTargetPower);
   }, [lovense, throttledTargetPower]);
+
+  /// Set device rotation power and direction when it changes.
+  useEffect(() => {
+    if (!lovense) {
+      return;
+    }
+
+    if (throttledTargetRotationPower < 0 && !directionToggled.current) {
+      lovense.toggleRotationDirection();
+      directionToggled.current = true;
+    } else if (throttledTargetRotationPower > 0 && directionToggled.current) {
+      lovense.toggleRotationDirection();
+      directionToggled.current = false;
+    }
+
+    lovense.rotate(Math.abs(throttledTargetRotationPower));
+  }, [lovense, throttledTargetRotationPower]);
 
   if (!lovense) {
     return (
@@ -128,7 +151,7 @@ export const DeviceControl: FC<{ device: BluetoothDevice }> = ({ device }) => {
               fontFamily: "Trebuchet MS"
             }}
           >
-            {info ? info.name : device.name}
+            {info ? info.model : device.name}
           </span>
           {info && batch && (
             <div
@@ -161,8 +184,10 @@ export const DeviceControl: FC<{ device: BluetoothDevice }> = ({ device }) => {
               style={{
                 display: "flex",
                 alignItems: "center",
-                justifyContent: "start",
-                flexDirection: "row"
+                width: "100%",
+                justifyContent: "flex-end",
+                flexDirection: "row",
+                height: "56px"
               }}
             >
               <span
@@ -173,22 +198,14 @@ export const DeviceControl: FC<{ device: BluetoothDevice }> = ({ device }) => {
                   cursor: "pointer"
                 }}
                 onClick={() => {
-                  lovense.vibrate(0);
-                  lovense.stop();
+                  setTargetRotationLevel(0);
                   setTargetLevel(0);
+                  lovense.stop();
                 }}
               >
                 🛑
               </span>
 
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "start",
-                  flexDirection: "column"
-                }}
-              ></div>
               <code
                 style={{
                   verticalAlign: "top",
@@ -214,15 +231,60 @@ export const DeviceControl: FC<{ device: BluetoothDevice }> = ({ device }) => {
                   setTargetLevel(level);
                 }}
                 style={{
+                  cursor: "pointer",
                   width: "225px",
                   transform: "scaleY(2.0)"
                 }}
               />
             </div>
-            {patterns && info && (
+            {info && info.capabilities.rotation && (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  width: "100%",
+                  justifyContent: "flex-end",
+                  flexDirection: "row",
+                  height: "56px"
+                }}
+              >
+                <span>rotation:</span>
+                <code
+                  style={{
+                    verticalAlign: "top",
+                    margin: "4px",
+                    fontSize: "16px",
+                    whiteSpace: "pre",
+                    fontFamily: "consolas, monospace"
+                  }}
+                >
+                  {Math.floor(targetRotationPower * 100)
+                    .toString()
+                    .padStart(3)}
+                  %
+                </code>
+
+                <input
+                  value={targetRotationLevel}
+                  min="-20"
+                  max="20"
+                  type="range"
+                  onChange={event => {
+                    const level = Number(event.target.value);
+                    setTargetRotationLevel(level);
+                  }}
+                  style={{
+                    cursor: "pointer",
+                    width: "225px",
+                    transform: "scaleY(2.0)"
+                  }}
+                />
+              </div>
+            )}
+            {info && info.capabilities.patterns && patterns && (
               <PatternsControl
                 lovense={lovense}
-                patterns={info.name === "Domi" ? patterns : patterns.slice(0, 3)}
+                patterns={patterns.slice(0, info.capabilities.patterns)}
               />
             )}
           </>
