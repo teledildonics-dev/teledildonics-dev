@@ -45,8 +45,14 @@ export default class Lovense implements AsyncDestroy {
     this.connected = undefined;
   }
 
+  deviceName() {
+    return this.device.name || this.device.id;
+  }
+
   private logPrefix(): string {
-    return `${(this.device.name || this.device.id).slice(0, 10).padStart(10)}:`;
+    return `${this.deviceName()
+      .slice(0, 10)
+      .padStart(10)}:`;
   }
 
   public addEventListener(type: EventType, listener: (event: unknown) => void): unknown {

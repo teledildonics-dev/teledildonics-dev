@@ -4,6 +4,7 @@ import { useThrottledChanges } from "../hooks/throttle";
 import { LovenseDeviceInfo } from "../lovense/lovense";
 import { PatternsControl } from "./patterns";
 import { PatternDisplay, thor } from "../lovense/patterns";
+import { useLovenseDebug } from "../hooks/lovense-debug";
 
 export const DeviceControl: FC<{ device: BluetoothDevice }> = ({ device }) => {
   const [targetVibrationLevel, setTargetVibrationLevel] = useState(0);
@@ -29,6 +30,8 @@ export const DeviceControl: FC<{ device: BluetoothDevice }> = ({ device }) => {
       setTargetRotationLevel(0);
     }, [])
   );
+
+  useLovenseDebug(lovense);
 
   /// Fetch device info once it's available.
   useEffect(() => {
