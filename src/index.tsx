@@ -1,8 +1,6 @@
-import React, { FC, useState, useEffect } from "react";
+import React, { FC } from "react";
 import ReactDOM from "react-dom";
 import { DevicePanes } from "./components/devices";
-import { PatternDisplay } from "./lovense/patterns";
-import { start } from "repl";
 
 const App: FC = () => {
   return (

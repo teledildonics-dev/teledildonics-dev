@@ -8,13 +8,11 @@ import { PatternDisplay, thor } from "../lovense/patterns";
 export const DeviceControl: FC<{ device: BluetoothDevice }> = ({ device }) => {
   const [targetVibrationLevel, setTargetVibrationLevel] = useState(0);
   const targetVibrationPower = targetVibrationLevel / 20.0;
-  const throttledTargetVibrationPower = useThrottledChanges(250, targetVibrationPower);
-
-  const rotationDirectionToggled = useRef(false);
+  const throttledTargetVibrationPower = useThrottledChanges(500, targetVibrationPower);
 
   const [targetRotationLevel, setTargetRotationLevel] = useState(0);
   const targetRotationPower = targetRotationLevel / 20.0;
-  const throttledTargetRotationPower = useThrottledChanges(250, targetRotationPower);
+  const throttledTargetRotationPower = useThrottledChanges(500, targetRotationPower);
 
   const [info, setInfo] = useState<LovenseDeviceInfo>();
   const [batch, setBatch] = useState<number>();
@@ -89,15 +87,7 @@ export const DeviceControl: FC<{ device: BluetoothDevice }> = ({ device }) => {
       return;
     }
 
-    if (throttledTargetRotationPower < 0 && !rotationDirectionToggled.current) {
-      lovense.toggleRotationDirection();
-      rotationDirectionToggled.current = true;
-    } else if (throttledTargetRotationPower > 0 && rotationDirectionToggled.current) {
-      lovense.toggleRotationDirection();
-      rotationDirectionToggled.current = false;
-    }
-
-    lovense.rotate(Math.abs(throttledTargetRotationPower));
+    lovense.rotate(throttledTargetRotationPower);
   }, [lovense, info, throttledTargetRotationPower]);
 
   const [t, setT] = useState(0.0);
@@ -113,6 +103,7 @@ export const DeviceControl: FC<{ device: BluetoothDevice }> = ({ device }) => {
       setT(t);
       const x = thor(t);
       setTargetVibrationLevel(x * 20);
+      setTargetRotationLevel(x * 20);
     }, 1000 / 60);
 
     return () => {

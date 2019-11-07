@@ -4,9 +4,8 @@ import { unwrap, assert } from "../common/safety";
 
 const outerHeight = 300;
 const innerHeight = 2.0;
-const outerWidth = 1200;
-const innerWidth = 120.0;
-const xOffset = 0.5;
+const outerWidth = 900;
+const innerWidth = 90.0;
 const xScale = outerWidth / innerWidth;
 const yOffset = 0.5 + outerHeight / 2;
 const yScale = outerHeight / innerHeight;
@@ -17,6 +16,8 @@ export const PatternDisplay: FC<{
   height?: number;
 }> = ({ pattern, x, height = 100 }) => {
   const y = pattern(x);
+
+  const xOffset = 0.5 - Math.max(0, x * xScale - 25 * Math.log(x) - outerWidth / 4 + 100);
 
   const canvas = document.createElement("canvas");
   canvas.width = outerWidth;
@@ -29,7 +30,7 @@ export const PatternDisplay: FC<{
   g2d.beginPath();
   g2d.strokeStyle = "#EEE";
   g2d.lineWidth = 3;
-  for (let dy = -yOffset; dy <= outerWidth; dy += 0.25 * yScale) {
+  for (let dy = -yOffset; dy <= outerHeight; dy += 0.25 * yScale) {
     g2d.moveTo(0, outerHeight - (yOffset + dy));
     g2d.lineTo(outerWidth, outerHeight - (yOffset + dy));
   }
@@ -38,7 +39,7 @@ export const PatternDisplay: FC<{
   g2d.beginPath();
   g2d.strokeStyle = "#EEE";
   g2d.lineWidth = 3;
-  for (let dx = 0; dx < outerWidth; dx += 1.0 * xScale) {
+  for (let dx = 0; dx <= outerWidth * 8; dx += 1.0 * xScale) {
     g2d.moveTo(xOffset + dx, outerHeight);
     g2d.lineTo(xOffset + dx, outerHeight - outerHeight);
   }
@@ -48,7 +49,7 @@ export const PatternDisplay: FC<{
   g2d.beginPath();
   g2d.strokeStyle = "#AAA";
   g2d.lineWidth = 7;
-  for (let dy = -yOffset; dy <= outerWidth; dy += 1.0 * yScale) {
+  for (let dy = -yOffset; dy <= outerHeight; dy += 1.0 * yScale) {
     g2d.moveTo(0, outerHeight - (yOffset + dy));
     g2d.lineTo(outerWidth, outerHeight - (yOffset + dy));
   }
@@ -58,7 +59,7 @@ export const PatternDisplay: FC<{
   g2d.beginPath();
   g2d.strokeStyle = "#AAA";
   g2d.lineWidth = 7;
-  for (let dx = 0; dx < outerWidth; dx += 10 * xScale) {
+  for (let dx = 0; dx <= outerWidth * 8; dx += 10 * xScale) {
     g2d.moveTo(xOffset + dx, 0);
     g2d.lineTo(xOffset + dx, outerHeight);
   }
@@ -79,7 +80,7 @@ export const PatternDisplay: FC<{
   g2d.strokeStyle = "#000";
   g2d.lineWidth = 3;
   g2d.moveTo(xOffset, yOffset);
-  for (let x = 0; x < outerWidth; x++) {
+  for (let x = 0; x <= outerWidth * 8; x++) {
     const y = pattern(x / xScale) * yScale;
     g2d.lineTo(xOffset + x, outerHeight - (yOffset + y));
   }
@@ -122,7 +123,7 @@ export const blend = (...numbers: Array<number>) => {
 };
 
 export const thor = (x: number) => {
-  x = x / 4;
+  x = x / 3;
   const xAccelerating = Math.pow(x - sinny(x, 10), 1.5);
   const baseline = blend(sinny(x, 10), sinny(x, 3));
   const longStrongRamp = Math.pow(clamp(x / 120), 2);
