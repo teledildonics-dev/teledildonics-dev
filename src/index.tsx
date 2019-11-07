@@ -1,6 +1,8 @@
-import React, { FC } from "react";
+import React, { FC, useState, useEffect } from "react";
 import ReactDOM from "react-dom";
 import { DevicePanes } from "./components/devices";
+import { PatternDisplay } from "./lovense/patterns";
+import { start } from "repl";
 
 const App: FC = () => {
   return (
@@ -26,7 +28,7 @@ const App: FC = () => {
         }}
       >
         teledildonics.dev: my remote control playground. <br />
-        Buggy and unstable.{" "}
+        Buggy, unstable, and unofficial.{" "}
         <a href="https://github.com/teledildonics-dev/teledildonics-dev">
           View source here
         </a>

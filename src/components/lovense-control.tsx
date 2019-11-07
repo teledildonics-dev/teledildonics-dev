@@ -3,17 +3,18 @@ import { useLovense } from "../hooks/lovense";
 import { useThrottledChanges } from "../hooks/throttle";
 import { LovenseDeviceInfo } from "../lovense/lovense";
 import { PatternsControl } from "./patterns";
+import { PatternDisplay, thor } from "../lovense/patterns";
 
 export const DeviceControl: FC<{ device: BluetoothDevice }> = ({ device }) => {
   const [targetVibrationLevel, setTargetVibrationLevel] = useState(0);
   const targetVibrationPower = targetVibrationLevel / 20.0;
-  const throttledTargetVibrationPower = useThrottledChanges(125, targetVibrationPower);
+  const throttledTargetVibrationPower = useThrottledChanges(250, targetVibrationPower);
 
   const rotationDirectionToggled = useRef(false);
 
   const [targetRotationLevel, setTargetRotationLevel] = useState(0);
   const targetRotationPower = targetRotationLevel / 20.0;
-  const throttledTargetRotationPower = useThrottledChanges(125, targetRotationPower);
+  const throttledTargetRotationPower = useThrottledChanges(250, targetRotationPower);
 
   const [info, setInfo] = useState<LovenseDeviceInfo>();
   const [batch, setBatch] = useState<number>();
@@ -98,6 +99,26 @@ export const DeviceControl: FC<{ device: BluetoothDevice }> = ({ device }) => {
 
     lovense.rotate(Math.abs(throttledTargetRotationPower));
   }, [lovense, info, throttledTargetRotationPower]);
+
+  const [t, setT] = useState(0.0);
+  useEffect(() => {
+    if (!info) {
+      return;
+    }
+
+    const startTime = Date.now();
+
+    const intervalId = setInterval(() => {
+      const t = (Date.now() - startTime) / 1000;
+      setT(t);
+      const x = thor(t);
+      setTargetVibrationLevel(x * 20);
+    }, 1000 / 60);
+
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [info]);
 
   if (!lovense) {
     return (
@@ -198,6 +219,7 @@ export const DeviceControl: FC<{ device: BluetoothDevice }> = ({ device }) => {
         </div>
         {lovense && (
           <>
+            <PatternDisplay pattern={thor} x={t} height={100} />;
             <div
               style={{
                 display: "flex",
