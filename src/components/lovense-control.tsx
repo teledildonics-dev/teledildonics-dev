@@ -90,9 +90,11 @@ export const DeviceControl: FC<{ device: BluetoothDevice }> = ({ device }) => {
     lovense.rotate(throttledTargetRotationPower);
   }, [lovense, info, throttledTargetRotationPower]);
 
+  const [pattern, setPattern] = useState(() => thor);
+  const [patternEnabled, setPatternEnabled] = useState();
   const [t, setT] = useState(0.0);
   useEffect(() => {
-    if (!info) {
+    if (!(info && patternEnabled)) {
       return;
     }
 
@@ -101,7 +103,7 @@ export const DeviceControl: FC<{ device: BluetoothDevice }> = ({ device }) => {
     const intervalId = setInterval(() => {
       const t = (Date.now() - startTime) / 1000;
       setT(t);
-      const x = thor(t);
+      const x = pattern(t);
       setTargetVibrationLevel(x * 20);
       setTargetRotationLevel(x * 20);
     }, 1000 / 60);
@@ -109,7 +111,7 @@ export const DeviceControl: FC<{ device: BluetoothDevice }> = ({ device }) => {
     return () => {
       clearInterval(intervalId);
     };
-  }, [info]);
+  }, [info, pattern, patternEnabled]);
 
   if (!lovense) {
     return (
@@ -210,7 +212,6 @@ export const DeviceControl: FC<{ device: BluetoothDevice }> = ({ device }) => {
         </div>
         {lovense && (
           <>
-            <PatternDisplay pattern={thor} x={t} height={100} />;
             <div
               style={{
                 display: "flex",
@@ -318,6 +319,13 @@ export const DeviceControl: FC<{ device: BluetoothDevice }> = ({ device }) => {
                 patterns={patterns.slice(0, info.capabilities.patterns)}
               />
             )}
+            {info && pattern && (
+              <>
+                <PatternDisplay pattern={pattern} x={t} height={100} />
+                <button onClick={() => setPatternEnabled(!patternEnabled)}>run</button>
+              </>
+            )}
+            ;
           </>
         )}
       </div>

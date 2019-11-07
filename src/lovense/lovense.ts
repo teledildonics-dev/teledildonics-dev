@@ -12,6 +12,8 @@ import { Model, modelsById, modelCapabilities, DeviceCapabilities } from "./mode
 type EventType = "connect" | "disconnect";
 
 export default class Lovense implements AsyncDestroy {
+  // TODO: this generic opaque lock might not be a useful abstraction here
+  // we might want a request queue that's visible to this class
   /// A lock used to serialize all Bluetooth calls, since the protocol isn't concurrency-safe.
   private lock: Lock = new Lock();
   /// Returns an Promise<Error> if this instance is being or has been destroyed, else null.
@@ -345,10 +347,10 @@ export default class Lovense implements AsyncDestroy {
     }
 
     let command;
-    if (power < 0) {
-      command = "Rotate:False:";
-    } else if (power > 0) {
-      command = "Rotate:True:";
+    if (power > 0) {
+      command = "RotateClockwise:";
+    } else if (power < 0) {
+      command = "RotateAnticlockwise:";
     } else {
       command = "Rotate";
     }
