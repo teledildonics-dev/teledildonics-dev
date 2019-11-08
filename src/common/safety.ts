@@ -7,6 +7,8 @@ export function assert(condition: unknown, message: string = "assertion failed")
   if (condition === false || condition === null || condition === undefined) {
     throw new Error(message);
   }
+
+  return true;
 }
 
 /// Ensures a value is not undefined and return it, or throws.
@@ -75,3 +77,10 @@ export class Lock implements AsyncDestroy {
 export interface AsyncDestroy {
   destroy(error?: Error): Promise<Error>;
 }
+
+export const freeze = Object.freeze;
+
+export const unreachable = () => {
+  throw new UnreachableError('this "can\'t" happen');
+};
+export class UnreachableError extends Error {}

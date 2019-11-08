@@ -1,5 +1,5 @@
-export const sleep = async (interval: number) => {
-  await new Promise(resolve => setTimeout(resolve, interval));
+export const sleep = async (ms: number) => {
+  await new Promise(resolve => setTimeout(resolve, ms));
 };
 
 export const addTimeout = async <T>(
