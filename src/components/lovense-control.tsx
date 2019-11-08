@@ -1,4 +1,4 @@
-import React, { useState, FC, useEffect, useRef, useCallback } from "react";
+import React, { useState, FC, useEffect, useCallback } from "react";
 import { useLovense } from "../hooks/lovense";
 import { useThrottledChanges } from "../hooks/throttle";
 import { LovenseDeviceInfo } from "../lovense/lovense";
@@ -205,7 +205,10 @@ export const DeviceControl: FC<{ device: BluetoothDevice }> = ({ device }) => {
             </div>
           )}
           {battery != null && (
-            <div>
+            <div
+              onClick={() => lovense.battery().then(setBattery)}
+              style={{ cursor: "pointer" }}
+            >
               {Math.floor(battery * 100)}%
               <span role="img" aria-label="Battery">
                 🔋
@@ -328,7 +331,6 @@ export const DeviceControl: FC<{ device: BluetoothDevice }> = ({ device }) => {
                 <button onClick={() => setPatternEnabled(!patternEnabled)}>run</button>
               </>
             )}
-            ;
           </>
         )}
       </div>

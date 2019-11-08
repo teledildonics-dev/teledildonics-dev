@@ -94,7 +94,7 @@ export const PatternDisplay: FC<{
   g2d.stroke();
 
   const url = canvas.toDataURL();
-  return <img src={url} height={height} />;
+  return <img alt="pattern graph" src={url} height={height} />;
 };
 
 export const clamp = (x: number, min: number = 0.0, max: number = 1.0) => {

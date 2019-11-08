@@ -1,4 +1,4 @@
-import { FC, useEffect } from "react";
+import { useEffect } from "react";
 import Lovense from "../lovense/lovense";
 import { unsafe } from "../common/safety";
 
@@ -14,7 +14,7 @@ export const useLovenseDebug = (lovense: Lovense | null) => {
         const { value } = await responses.read();
         return value;
       });
-    console.debug(
+    console.info(
       `%c🌟%c Exported %c${lovense.deviceName()}%c as %cwindow.lovense: Lovense%c, with %cwindow.call: async (command: string) => Promise<void>%c.`,
       "font-family: sans-serif; margin-top: 16px; margin-right: 16px;",
       "font-family: sans-serif;",
@@ -25,7 +25,8 @@ export const useLovenseDebug = (lovense: Lovense | null) => {
       "font-weight: bold;",
       " "
     );
-    console.debug(
+    console.info(lovense);
+    console.info(
       "%c🌟%c You may now %cawait call('DeviceType;')%c.",
       "font-family: sans-serif; margin-bottom: 16px; margin-right: 16px;",
       "font-family: sans-serif;",

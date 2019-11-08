@@ -73,7 +73,7 @@ export default class Lovense implements AsyncDestroy {
       return this.connected;
     }
 
-    console.debug(this.logPrefix(), "Connecting.");
+    console.info(this.logPrefix(), "Connecting.");
 
     this.connectionCount += 1;
     this.connected = addTimeout(
@@ -89,7 +89,7 @@ export default class Lovense implements AsyncDestroy {
           const binary: DataView = event.target.value;
 
           const s = utf8.decode(binary);
-          console.debug(
+          console.info(
             `${this.logPrefix()} got  %c${s}`,
             "color: #131; font-weight: bold; border: 1px solid #131; padding: 2px 6px; background: #EEE;"
           );
@@ -146,7 +146,7 @@ export default class Lovense implements AsyncDestroy {
       }
     }
 
-    console.debug(this.logPrefix(), "Disconnecting");
+    console.info(this.logPrefix(), "Disconnecting");
 
     await this.server.disconnect();
   }
@@ -249,7 +249,7 @@ export default class Lovense implements AsyncDestroy {
             return utf8.decode(binary);
           },
           async responses => {
-            console.debug(
+            console.info(
               `${this.logPrefix()} sent %c${request}`,
               "color: purple; font-weight: bold; border: 1px solid purple; padding: 2px 6px; background: #EEE;"
             );
@@ -324,7 +324,7 @@ export default class Lovense implements AsyncDestroy {
   public async batch(): Promise<number> {
     return this.call("GetBatch;", async responses => {
       const { value } = await responses.read();
-      return Number(unwrap(first(value.split(";"))));
+      return Number(unwrap(first(value.split(/[;,]/))));
     });
   }
 
@@ -354,9 +354,9 @@ export default class Lovense implements AsyncDestroy {
 
     let command;
     if (power > 0) {
-      command = "RotateClockwise:";
+      command = "Rotate:True";
     } else if (power < 0) {
-      command = "RotateAnticlockwise:";
+      command = "Rotate:False";
     } else {
       command = "Rotate";
     }

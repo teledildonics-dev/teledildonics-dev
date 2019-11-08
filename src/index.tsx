@@ -30,7 +30,10 @@ const App: FC = () => {
         <a href="https://github.com/teledildonics-dev/teledildonics-dev">
           View source here
         </a>
-        .<br />
+        .
+        <br />
+        Open your developer console to see more.
+        <br />
         Only supports some <a href="https://www.lovense.com/compare">Lovense</a> devices.
       </div>
       <DevicePanes />
