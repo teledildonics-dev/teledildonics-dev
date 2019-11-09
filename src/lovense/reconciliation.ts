@@ -1,8 +1,64 @@
+/*
+import { AsyncDisposable } from "../common/disposable";
+
 // Trying a different approach.
+
+export {};
+
+type DeviceState =
+  | {
+      connected: false;
+      vibration: undefined;
+      rotation: undefined;
+    }
+  | {
+      connected: unknown;
+      vibration: undefined | VibrationLevel;
+      rotation: undefined | RotationLevel;
+    };
+
+type TargetState =
+  | {
+      connected: false;
+      vibration: undefined;
+      rotation: undefined;
+    }
+  | {
+      connected: true;
+      vibration: VibrationLevel;
+      rotation: RotationLevel;
+    };
+
+/// The public interface exposed by Lovense.
+abstract class LovenseInterface extends AsyncDisposable {
+  // The device's current vibration level, or undefined if unknown.
+  abstract vibration: undefined | VibrationLevel;
+  abstract async setVibration(vibration: VibrationLevel): Promise<VibrationLevel>;
+
+  /// The device's current rotation level and direction, or undefined if unknown.
+  abstract rotation: undefined | RotationLevel;
+  abstract async setRotation(rotation: RotationLevel): Promise<RotationLevel>;
+
+  async stop(): Promise<unknown> {
+    return Promise.all([this.setVibration(0), this.setRotation(0)]);
+  }
+}
+
+export class Lovense extends LovenseInterface {}
 
 import { unwrap, unreachable, unsafe } from "../common/safety";
 import { sleep, addTimeout } from "../common/async";
 import { AsyncDisposable } from "../common/disposable";
+
+abstract class State<T> {
+  private nextChangeListeners: Array<(_event: unknown) => unknown> = [];
+  private addEventListener(_name: "change", listener: (_events: unknown) => void, _options: {once: true}) {
+    this.nextChangeListeners.push(listener);
+  }
+  public constructor(public initial: T) {
+
+  }
+}
 
 export class Lovense extends AsyncDisposable {
   // === Static Properties
@@ -10,6 +66,13 @@ export class Lovense extends AsyncDisposable {
   private readonly server: BluetoothRemoteGATTServer;
   private transmitter: BluetoothRemoteGATTCharacteristic = undefined as unsafe;
   private receiver: BluetoothRemoteGATTCharacteristic = undefined as unsafe;
+
+  const nextVibration: Promise<void>;
+  async vibration() {
+    nextVib
+    await lock();
+    if 
+  }
 
   constructor(device: BluetoothDevice) {
     super();
@@ -185,10 +248,10 @@ export class Lovense extends AsyncDisposable {
     return this.doDisconnect();
   }
 
-  /// Sets the device's vibration level.
+  /// Sets the device's vibration vibration.
   ///
   /// If another .vibrate() call is made before this command is sent to the, device, this
-  /// command will be skipped. The result of this function will reflect the final level
+  /// command will be skipped. The result of this function will reflect the final vibration
   /// that was actually set.
   private async vibrate(target: VibrationLevel): Promise<VibrationLevel> {
     this.throwIfDisposeStarted();
@@ -196,6 +259,7 @@ export class Lovense extends AsyncDisposable {
     return this.vibrate(target);
   }
 }
+
 
 export type Unknown = "unknown";
 export const Unknown: Unknown = "unknown";
@@ -218,3 +282,6 @@ export function isVibrationLevel(n: number): n is RotationLevel {
 export type VibrationLevel =
   | (0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10)
   | (11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19 | 20);
+
+  */
+export {};

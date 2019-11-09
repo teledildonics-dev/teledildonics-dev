@@ -93,7 +93,7 @@ export const DeviceControl: FC<{ device: BluetoothDevice }> = ({ device }) => {
     lovense.rotate(throttledTargetRotationPower);
   }, [lovense, info, throttledTargetRotationPower]);
 
-  const [pattern, setPattern] = useState(() => thor);
+  const [pattern] = useState(() => thor);
   const [patternEnabled, setPatternEnabled] = useState();
   const [t, setT] = useState(0.0);
   useEffect(() => {

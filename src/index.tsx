@@ -1,43 +1,46 @@
 import React, { FC } from "react";
 import ReactDOM from "react-dom";
-import { DevicePanes } from "./components/devices";
+import { LovenseDevicesPage } from "./pages/lovense-devices";
+import { ScrapPage } from "./pages/scrap";
+
+const routes: { [_: string]: FC } = {
+  "/lovense-devices": LovenseDevicesPage,
+  "/scrap": ScrapPage
+};
 
 const App: FC = () => {
+  const path = document.location.pathname;
+  const Route = routes[path];
+  const Page = Route || Index;
+
+  // sue me
+  document.title = Route ? path.slice(1) : `teledildonics.dev`;
+
   return (
-    <main
-      style={{
-        margin: "32px",
-        fontFamily: "sans-serif"
-      }}
-    >
-      <div
+    <section style={{ fontFamily: "garamond", margin: "32px", fontSize: "24px" }}>
+      <h1
         style={{
-          border: "1px solid black",
-          color: "#000",
-          background: "#FFF8F0",
-          fontSize: "12px",
-          fontFamily: "sans-serif",
-          padding: "10px",
-          borderRadius: "4px",
-          display: "inline-block",
-          margin: "4px",
-          float: "right",
-          lineHeight: "18px"
+          marginBottom: "24px"
         }}
       >
-        teledildonics.dev: my remote control playground. <br />
-        Buggy, unstable, and unofficial.{" "}
-        <a href="https://github.com/teledildonics-dev/teledildonics-dev">
-          View source here
-        </a>
-        .
-        <br />
-        Open your developer console to see more.
-        <br />
-        Only supports some <a href="https://www.lovense.com/compare">Lovense</a> devices.
-      </div>
-      <DevicePanes />
-    </main>
+        <a href="/">teledildonics.dev</a>
+        {path}
+      </h1>
+
+      <Page />
+    </section>
+  );
+};
+
+export const Index: FC = () => {
+  return (
+    <ul style={{ listStyleType: "square" }}>
+      {Object.entries(routes).map(([path, page], index) => (
+        <li key={index} style={{ marginTop: "16px", marginLeft: "1em" }}>
+          <a href={path}>{path}</a>
+        </li>
+      ))}
+    </ul>
   );
 };
 

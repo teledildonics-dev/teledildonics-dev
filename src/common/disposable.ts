@@ -1,20 +1,21 @@
+import { Resolver } from "./async";
 export class AsyncDisposable {
-  /// An AbortController that will be activated once dispose() is called.
-  private disposeStartedController = new AbortController();
-  /// An AbortSignal that will be activated once dispose() is called.
-  protected diposeSignal = this.disposeStartedController.signal;
+  /// An Resolver that will be resolved once dispose() is called.
+  private disposeStartedController = new Resolver();
+  /// An AbortSignal that will be resolved once dispose() is called.
+  protected diposeStartedSignal = this.disposeStartedController.asSignal();
 
-  /// An AbortController that will be activated when dispose() is complete.
-  private disposeCompleteController = new AbortController();
-  /// An AbortSignal that will be activated when disposeComplete() is complete.
-  protected diposeCompleteSignal = this.disposeCompleteController.signal;
+  /// An Resolver that will be resolved when dispose() is complete.
+  private disposeCompleteController = new Resolver();
+  /// An AbortSignal that will be resolved when disposeComplete() is complete.
+  protected diposeCompleteSignal = this.disposeCompleteController.asSignal();
 
   /// Throws an error if dispose() has been called.
   ///
   /// Subclasses should consider calling this at the beginning of every public-facing method to assert
   /// that they're never called after dispose() has been called.
   protected throwIfDisposeStarted() {
-    if (this.disposeStartedController.signal.aborted) {
+    if (this.diposeStartedSignal.settled) {
       throw new DisposedError(this, `dispose() already called on ${this}`);
     }
   }
@@ -24,7 +25,7 @@ export class AsyncDisposable {
   /// Subclasses should consider calling this at the beginning of every method (unless
   /// throwIfDisposeStarted() is called), and after every await in method bodies.
   protected throwIfDisposeComplete() {
-    if (this.disposeCompleteController.signal.aborted) {
+    if (this.diposeCompleteSignal.settled) {
       throw new DisposedError(this, `dispose() already completed on ${this}`);
     }
   }
@@ -36,7 +37,7 @@ export class AsyncDisposable {
   protected async dispose() {
     this.throwIfDisposeStarted();
 
-    this.disposeStartedController.abort();
+    this.disposeStartedController.resolve();
 
     if (this.disposal) {
       return this.disposal;
@@ -45,7 +46,7 @@ export class AsyncDisposable {
     try {
       await this.onDispose();
     } finally {
-      this.disposeCompleteController.abort();
+      this.disposeCompleteController.resolve();
     }
   }
 
