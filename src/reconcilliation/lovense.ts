@@ -1,76 +1,6 @@
-import { FC, ReactElement, useState, useEffect } from "react";
+import { Model, Nora } from "../lovense/models";
 import { AsyncDisposable } from "../common/disposable";
 import { sleep } from "../common/async";
-import { Model, Nora } from "../lovense/models";
-import React from "react";
-import BluetoothSelector from "../components/bluetooth-selector";
-import { deviceProfile } from "../lovense/lovense";
-
-export const ScrapPage: FC = () => {
-  return <LovenseSelector onChange={() => {}} />;
-};
-
-export const LovenseSelector: FC<{
-  onChange: (lovense: Lovense | undefined) => void;
-}> = ({ onChange }) => {
-  const [lovense, setLovense] = useState<Lovense>();
-  const [info, setInfo] = useState<LovenseDeviceInfo>();
-
-  useEffect(() => {
-    if (!lovense) {
-      return lovense;
-    }
-
-    let abortion = new AbortController();
-
-    lovense.info().then(info => {
-      if (abortion.signal.aborted) {
-        return;
-      }
-
-      setInfo(info);
-    });
-
-    return () => {
-      abortion.abort();
-    };
-  }, [lovense]);
-
-  if (!lovense) {
-    return (
-      <div>
-        <BluetoothSelector
-          options={deviceProfile}
-          onChange={event => {
-            setInfo(undefined);
-            const device = event.target.value;
-            if (device) {
-              const lovense = new LovenseDevice(device);
-              setLovense(lovense);
-              onChange(lovense);
-            } else {
-              setLovense(undefined);
-              onChange(lovense);
-            }
-          }}
-        />
-        <button
-          onClick={_event => {
-            setInfo(undefined);
-            const lovense = new LovenseFake();
-            setLovense(lovense);
-            onChange(lovense);
-          }}
-        >
-          fake device
-        </button>
-      </div>
-    );
-  } else {
-    let description = info ? JSON.stringify(info) : lovense.toString();
-    return <div>selected {description}</div>;
-  }
-};
 
 /// The information we get or derive from the DeviceType call.
 export type LovenseDeviceInfo = {
@@ -82,7 +12,9 @@ export type LovenseDeviceInfo = {
   id: string;
 };
 
-abstract class Lovense extends AsyncDisposable {
+// Supersceded~!
+
+export abstract class Lovense extends AsyncDisposable {
   /// Returns metadata about this device. Immutable, so, memoized.
   async info(): Promise<LovenseDeviceInfo> {
     if (!this.cachedInfo) {
@@ -140,7 +72,7 @@ export class LovenseFake extends Lovense {
     return {
       model: Nora,
       id:
-        "20191109" +
+        "191109" +
         performance
           .now()
           .toString(16)

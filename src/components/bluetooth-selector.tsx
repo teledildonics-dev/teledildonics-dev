@@ -1,6 +1,7 @@
 import React, { useState, FC, CSSProperties } from "react";
+import { BluetoothLogo } from "./bluetooth-logo";
 
-const baseStyles: CSSProperties = {
+export const buttonStyles: CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
@@ -31,7 +32,7 @@ export const BluetoothSelector: FC<{
   if (!requested) {
     return (
       <button
-        style={{ ...baseStyles, cursor: "pointer", ...style }}
+        style={{ ...buttonStyles, cursor: "pointer", ...style }}
         onClick={async () => {
           const request = navigator.bluetooth.requestDevice(options);
           setRequested(true);
@@ -46,21 +47,21 @@ export const BluetoothSelector: FC<{
           }
         }}
       >
-        Select ᛒᚼ Device
+        <BluetoothLogo /> &nbsp; Select Device
       </button>
     );
   } else if (!device) {
     return (
       <button
         disabled={true}
-        style={{ ...baseStyles, background: "#AAB", color: "#444", ...style }}
+        style={{ ...buttonStyles, background: "#AAB", color: "#444", ...style }}
       >
-        Selecting ᛒᚼ...
+        <BluetoothLogo /> &nbsp; Selecting...
       </button>
     );
   } else {
     return (
-      <span style={{ ...baseStyles, background: "#BDC", ...style }}>
+      <span style={{ ...buttonStyles, background: "#BDC", ...style }}>
         <span
           style={{
             background: "#DBB",
@@ -100,7 +101,7 @@ export const BluetoothSelector: FC<{
             textAlign: "center"
           }}
         >
-          ᛒᚼ {device.name}
+          <BluetoothLogo /> &nbsp; {device.name}
         </span>
       </span>
     );

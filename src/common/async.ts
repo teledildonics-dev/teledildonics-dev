@@ -18,13 +18,13 @@ export class TimeoutError extends Error {}
 /// its status (but not value) synchronously available as .settled.
 ///
 /// If no type is specified this defaults to void for use as a signal.
-export class Resolver<T = void> extends Promise<T> {
-  //// TODO: YOU CAN'T EXTEND PROMISE IT'S JUST NOT POSSIBLE STOP PLEASE
-  constructor() {
-    super((resolve, reject) => {
+export class Resolver<T = void> implements PromiseLike<T> {
+  constructor(
+    public readonly promise: Promise<T> = new Promise((resolve, reject) => {
       this.resolve_ = resolve;
       this.reject_ = reject;
-    });
+    })
+  ) {
     this.then(
       _value => {
         this.settled_ = "resolved";
@@ -33,6 +33,13 @@ export class Resolver<T = void> extends Promise<T> {
         this.settled_ = "rejected";
       }
     );
+  }
+
+  public then<TResult1 = T, TResult2 = never>(
+    onfulfilled?: ((value: T) => TResult1 | PromiseLike<TResult1>) | undefined | null,
+    onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | undefined | null
+  ): PromiseLike<TResult1 | TResult2> {
+    return this.promise.then(onfulfilled, onrejected);
   }
 
   private settled_: false | "resolved" | "rejected" = false;
@@ -51,12 +58,12 @@ export class Resolver<T = void> extends Promise<T> {
   }
 
   /// Type-only transformation limiting to read-only interfaces.
-  public asSignal(): Signal<T> {
+  public readonly(): ReadonlyResolver<T> {
     return this;
   }
 }
 
-export type Signal<T = void> = Resolver<T> &
+export type ReadonlyResolver<T = void> = Resolver<T> &
   (
     | Promise<T>
     | {

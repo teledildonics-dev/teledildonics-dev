@@ -1,7 +1,7 @@
 import React, { FC } from "react";
 import ReactDOM from "react-dom";
 import { LovenseDevicesPage } from "./pages/lovense-devices";
-import { ScrapPage } from "./pages/scrap";
+import { ScrapPage } from "./reconcilliation/scrap";
 
 const routes: { [_: string]: FC } = {
   "/lovense-devices": LovenseDevicesPage,
@@ -23,8 +23,7 @@ const App: FC = () => {
           marginBottom: "24px"
         }}
       >
-        <a href="/">teledildonics.dev</a>
-        {path}
+        <a href="/">teledildonics.dev</a>/<a href={path}>{path.slice(1)}</a>
       </h1>
 
       <Page />
@@ -37,7 +36,7 @@ export const Index: FC = () => {
     <ul style={{ listStyleType: "square" }}>
       {Object.entries(routes).map(([path, page], index) => (
         <li key={index} style={{ marginTop: "16px", marginLeft: "1em" }}>
-          <a href={path}>{path}</a>
+          <a href={path}>{path.slice(1)}</a>
         </li>
       ))}
     </ul>
