@@ -18,6 +18,30 @@
         text-decoration-color: #000;
       }
     </style>
+    <script>
+      // Strip down to a minimal text console.log() API for WebBLE.
+      window.realConsole = window.console;
+      const log = (...args) => {
+        const pieces = [];
+        while (args.length > 0) {
+          let next = String(args.shift());
+          const styles = (next.match(/%./g) || []).length;
+          for (let i = 0; i < styles; i++) {
+            args.shift();
+          }
+          const stripped = next.replace(/%./g, "");
+          realConsole.log(stripped);
+        }
+      };
+      window.console = {
+        log: log,
+        info: log,
+        debug: log,
+        error: log,
+        warn: log
+      };
+      console.log(navigator.userAgent);
+    </script>
   </head>
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>
