@@ -17,7 +17,7 @@ export const BluetoothLogo: FC<{ width?: number; height?: number }> = ({
       <path
         d="m157,330,305,307-147,178v-636l147,170-305,299"
         stroke="#FFF"
-        stroke-width="53"
+        strokeWidth="53"
         fill="none"
       />
     </svg>

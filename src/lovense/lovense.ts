@@ -36,7 +36,8 @@ export default class Lovense implements AsyncDestroy {
   /// Maximum of time to wait for a response before we mark a call as failed.
   private callTimeout: number = 4000;
 
-  private eventTarget = new (EventTarget || Element)();
+  /// Safari doesn't support new EventTarget.
+  private eventTarget: EventTarget = document.createElement("teledildonics-EventTarget");
 
   public constructor(device: BluetoothDevice) {
     this.device = device;
