@@ -4,7 +4,9 @@ import { deviceProfile } from "../lovense/lovense";
 
 import BluetoothSelector, { buttonStyles } from "../components/bluetooth-selector";
 
-import { Lovense, LovenseDeviceInfo, LovenseDevice, LovenseFake } from "./lovense";
+import { Lovense, LovenseDeviceInfo } from "./lovense-abstract";
+import { LovenseDevice } from "./lovense-device";
+import { LovenseFake } from "./lovense-fake";
 
 export const LovenseSelector: FC<{
   onChange: (lovense: Lovense | undefined) => void;

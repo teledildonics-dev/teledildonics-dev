@@ -2,7 +2,7 @@ import { FC, useState } from "react";
 import React from "react";
 import { LovenseSelector } from "./lovense-selector";
 import { useLovense } from "./use-lovense";
-import { Lovense, VibrationLevel, RotationLevel } from "./lovense";
+import { Lovense, VibrationLevel, RotationLevel } from "./lovense-abstract";
 
 export const ScrapPage: FC = () => {
   const [lovenseInternal, setLovense] = useState<Lovense>();

@@ -1,5 +1,10 @@
 import { Model } from "../lovense/models";
-import { VibrationLevel, RotationLevel, Lovense, LovenseDeviceInfo } from "./lovense";
+import {
+  VibrationLevel,
+  RotationLevel,
+  Lovense,
+  LovenseDeviceInfo
+} from "./lovense-abstract";
 import { useEffect, useState } from "react";
 import { unsafe } from "../common/safety";
 

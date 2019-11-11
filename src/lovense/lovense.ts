@@ -36,7 +36,7 @@ export default class Lovense implements AsyncDestroy {
   /// Maximum of time to wait for a response before we mark a call as failed.
   private callTimeout: number = 4000;
 
-  private eventTarget = new EventTarget();
+  private eventTarget = new (EventTarget || Element)();
 
   public constructor(device: BluetoothDevice) {
     this.device = device;

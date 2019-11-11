@@ -1367,6 +1367,11 @@
     lodash.unescape "4.0.1"
     semver "^6.3.0"
 
+"@ungap/event-target@^0.1.0":
+  version "0.1.0"
+  resolved "https://registry.yarnpkg.com/@ungap/event-target/-/event-target-0.1.0.tgz#88d527d40de86c4b0c99a060ca241d755999915b"
+  integrity sha512-W2oyj0Fe1w/XhPZjkI3oUcDUAmu5P4qsdT2/2S8aMhtAWM/CE/jYWtji0pKNPDfxLI75fa5gWSEmnynKMNP/oA==
+
 "@webassemblyjs/ast@1.8.5":
   version "1.8.5"
   resolved "https://registry.yarnpkg.com/@webassemblyjs/ast/-/ast-1.8.5.tgz#51b1c5fe6576a34953bf4b253df9f0d490d9e359"

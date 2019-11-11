@@ -1,6 +1,5 @@
 import { Model, Nora } from "../lovense/models";
 import { AsyncDisposable } from "../common/disposable";
-import { sleep } from "../common/async";
 
 /// The information we get or derive from the DeviceType call.
 export type LovenseDeviceInfo = {
@@ -67,55 +66,23 @@ export abstract class Lovense extends AsyncDisposable {
   }
 }
 
-export class LovenseFake extends Lovense {
-  protected async info_() {
-    return {
-      model: Nora,
-      id:
-        "191109" +
-        performance
-          .now()
-          .toString(16)
-          .slice(6)
-    };
-  }
-
-  public vibration: VibrationLevel = 0;
-  protected async setVibration_(vibration: VibrationLevel) {
-    await sleep(250);
-    this.vibration = vibration;
-    return vibration;
-  }
-
-  public rotation: RotationLevel = 0;
-  protected async setRotation_(rotation: RotationLevel) {
-    await sleep(250);
-    this.rotation = rotation;
-    return rotation;
-  }
-}
-
-export class LovenseDevice extends LovenseFake {
-  private device: BluetoothDevice;
-  constructor(device: BluetoothDevice) {
-    super();
-    this.device = device;
-  }
-}
-
 export function isRotationLevel(n: number): n is RotationLevel {
   return Number.isFinite(n) && -20 <= n && n <= +20;
 }
+
+/// A rotation level with direction indicated by sign.
+/// Positive values are clockwise, negative values are anticlockwise.
 export type RotationLevel =
   | (-20 | -19 | -18 | -17 | -16 | -15 | -14 | -13 | -12 | -11)
   | (-10 | -9 | -8 | -7 | -6 | -5 | -4 | -3 | -2 | -1)
   | (0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10)
   | (11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19 | 20);
 
-export function isVibrationLevel(n: number): n is RotationLevel {
+export function isVibrationLevel(n: number): n is VibrationLevel {
   return Number.isFinite(n) && -20 <= n && n <= +20;
 }
 
+/// Vibration levels.
 export type VibrationLevel =
   | (0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10)
   | (11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19 | 20);
